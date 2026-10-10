@@ -7,7 +7,9 @@ export async function GET(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   const asset=await imageBucket().get('question-images/'+id);if(!asset)return response({error:'Image not found.'},404);
   const published=url.searchParams.get('quiz');
-  const allowed=published?await imageInQuiz(id,published):asset.customMetadata?.owner===await imageOwner(req,url.searchParams.get('admin')==='1');
+  const arena=url.searchParams.get('arena');
+  const arenaRoom=arena?await db().prepare("SELECT questions,question_index FROM arena_rooms WHERE code=? AND expires>? AND status!='lobby'").bind(arena,Date.now()).first<any>():null;
+  const allowed=arena?!!arenaRoom&&JSON.parse(arenaRoom.questions)[arenaRoom.question_index]?.image?.id===id:published?await imageInQuiz(id,published):asset.customMetadata?.owner===await imageOwner(req,url.searchParams.get('admin')==='1');
   if(!allowed)return response({error:'Image not found.'},404);
   return new Response(asset.body,{headers:{'Content-Type':asset.httpMetadata?.contentType||'image/png','Cache-Control':'private, max-age=60','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'none'"}});
  }catch{return response({error:'Image unavailable.'},503);}
@@ -19,7 +21,8 @@ export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>})
  try{
   const asset=await imageBucket().head('question-images/'+id);if(!asset||asset.customMetadata?.owner!==owner)return response({error:'Image not found.'},404);
   const used=await db().prepare("SELECT q.id FROM quizzes q, json_each(q.questions) question WHERE json_extract(question.value,'$.image.id')=? LIMIT 1").bind(id).first();
-  if(used)return response({error:'This image is used by a saved quiz.'},409);
+  const arenaUsed=await db().prepare("SELECT r.code FROM arena_rooms r, json_each(r.questions) question WHERE r.expires>? AND json_extract(question.value,'$.image.id')=? LIMIT 1").bind(Date.now(),id).first();
+  if(used||arenaUsed)return response({error:'This image is used by a saved quiz or competition.'},409);
   await imageBucket().delete('question-images/'+id);return response({ok:true});
  }catch{return response({error:'Unable to remove image.'},400);}
 }

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, uniqueIndex, index } from 'drizzle-orm/sqlite-core';
 export const quizzes = sqliteTable('quizzes', { id: text('id').primaryKey(), title: text('title').notNull(), subject: text('subject').notNull(), description: text('description').notNull(), questions: text('questions').notNull(), active: integer('active').notNull().default(1), created: text('created').notNull(), ownerId: text('owner_id') });
 export const attempts = sqliteTable('attempts', { id: text('id').primaryKey(), quizId: text('quiz_id').notNull().references(()=>quizzes.id), student: text('student').notNull(), score: integer('score').notNull(), total: integer('total').notNull(), result: text('result').notNull(), created: text('created').notNull() });
 
@@ -11,3 +11,7 @@ export const aiJobs=sqliteTable('ai_jobs',{id:text('id').primaryKey(),userId:tex
 export const aiPayments=sqliteTable('ai_payments',{id:text('id').primaryKey(),userId:text('user_id').notNull(),created:integer('created').notNull()});
 
 export const creatorProfiles=sqliteTable('creator_profiles',{userId:text('user_id').primaryKey(),profile:text('profile').notNull(),updated:text('updated').notNull()});
+
+export const arenaRooms=sqliteTable('arena_rooms',{code:text('code').primaryKey(),ownerId:text('owner_id').notNull(),title:text('title').notNull(),quizId:text('quiz_id').notNull(),questions:text('questions').notNull(),mode:text('mode').notNull(),seconds:integer('seconds').notNull(),status:text('status').notNull(),questionIndex:integer('question_index').notNull(),deadline:integer('deadline').notNull(),remaining:integer('remaining').notNull(),version:integer('version').notNull(),created:integer('created').notNull(),expires:integer('expires').notNull()},t=>[index('arena_owner_idx').on(t.ownerId,t.expires)]);
+export const arenaPlayers=sqliteTable('arena_players',{id:text('id').primaryKey(),roomCode:text('room_code').notNull().references(()=>arenaRooms.code),tokenHash:text('token_hash').notNull(),name:text('name').notNull(),nameKey:text('name_key').notNull(),joined:integer('joined').notNull()},t=>[uniqueIndex('arena_token_idx').on(t.roomCode,t.tokenHash),uniqueIndex('arena_name_idx').on(t.roomCode,t.nameKey)]);
+export const arenaAnswers=sqliteTable('arena_answers',{roomCode:text('room_code').notNull(),playerId:text('player_id').notNull().references(()=>arenaPlayers.id),questionIndex:integer('question_index').notNull(),selected:integer('selected').notNull(),points:integer('points').notNull(),created:integer('created').notNull()},t=>[primaryKey({columns:[t.roomCode,t.playerId,t.questionIndex]}),index('arena_answers_round_idx').on(t.roomCode,t.questionIndex)]);
