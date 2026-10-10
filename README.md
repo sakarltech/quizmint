@@ -184,3 +184,5 @@ and reconcile Stripe entitlements during operational incident recovery.
 Administrator AI generation is free and never consumes trial or purchased credits. Creator accounts retain their 20-question lifetime trial, followed by paid credits or the £10.99 monthly plan.
 
 Long text, Word documents and PowerPoint decks are split at paragraph boundaries into roughly 20,000-character sections. Four bounded workers extract learning notes from every section before generating the requested quiz across those notes. Nothing is silently truncated. Short sources and PDFs use the direct generation path. Questions are validated and duplicate prompts rejected; any failed section or generation refunds the original question reservation. Long-source processing may take several minutes; files are not persisted.
+
+Section summaries target a concise length, but valid notes up to 16,000 characters are retained without truncation. Incomplete, malformed or empty structured summaries retry once within the shared processing deadline. Persistent failures identify the section and refund the whole reservation; diagnostics log status and lengths only, never source content.
