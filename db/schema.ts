@@ -9,3 +9,5 @@ export const authLimits=sqliteTable('auth_limits',{key:text('key').primaryKey(),
 export const aiWallets=sqliteTable('ai_wallets',{userId:text('user_id').primaryKey(),freeRemaining:integer('free_remaining').notNull().default(20),credits:integer('credits').notNull().default(0),subscriptionEnd:integer('subscription_end').notNull().default(0),customer:text('customer'),lockId:text('lock_id'),lockedUntil:integer('locked_until').notNull().default(0)});
 export const aiJobs=sqliteTable('ai_jobs',{id:text('id').primaryKey(),userId:text('user_id').notNull(),free:integer('free').notNull(),paid:integer('paid').notNull(),status:text('status').notNull(),result:text('result'),created:integer('created').notNull()});
 export const aiPayments=sqliteTable('ai_payments',{id:text('id').primaryKey(),userId:text('user_id').notNull(),created:integer('created').notNull()});
+
+export const creatorProfiles=sqliteTable('creator_profiles',{userId:text('user_id').primaryKey(),profile:text('profile').notNull(),updated:text('updated').notNull()});
