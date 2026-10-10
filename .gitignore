@@ -55,7 +55,5 @@ next-env.d.ts
 /outputs/
 /work/
 
-# Generated TypeScript cache
 *.tsbuildinfo
-# Safe configuration template
 !.env.example

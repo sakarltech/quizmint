@@ -1,27 +1,5 @@
 # QuizMint
 
-Quiz platform with manual authoring, shareable student links, automatic scoring and feedback, creator email/password accounts, and an OpenAI-authenticated administrator dashboard.
-
-The AI question studio supports topics, pasted text, PDF, DOCX, PPTX and audio/video speech. It includes a lifetime allowance of 20 questions, purchased credits and a monthly subscription. Live AI and billing require the secrets in `.env.example`; credentials and user data are not included in this repository.
-
-## Quick start
-
-Requires Node.js 22.13+ and pnpm 11.25.0.
-
-```bash
-pnpm install --frozen-lockfile
-pnpm dev
-```
-
-Run validation with `pnpm exec tsc --noEmit` and `node tests/api.mjs`.
-Build with `pnpm build`. The application targets Cloudflare Workers with D1; current Sites hosting configuration is preserved in `.openai/hosting.json`.
-
-A GitHub source copy does not provision the hosted database, migrate user data, configure secrets or establish automatic deployments. The existing Sites publication remains independent.
-
-## Framework and hosting reference
-
-# vinext-starter
-
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 
 ## Prerequisites
@@ -190,7 +168,7 @@ Enable Stripe's customer billing portal so customers can cancel and manage payme
 The success redirect never grants an entitlement; only a verified, idempotent webhook does.
 Payments remain disabled until both AI and payment secrets are configured.
 
-Launch prices (GBP): 50 credits £2.99; 200 £7.99; 500 £14.99; unlimited monthly £12.99.
+Launch prices (GBP): 50 credits £2.99; 200 £7.99; 500 £14.99; unlimited monthly £10.99.
 Prices are generated server-side; client amounts are ignored. The stated total is inclusive
 of any tax the business owes: tax registration/accounting must be configured with the
 merchant before live launch. This implementation does not add automatic tax on top.
@@ -202,3 +180,5 @@ refunds are issued. Email verification and stronger free-trial abuse controls sh
 added before broad commercial marketing; the existing email/password sign-up does not
 verify mailbox ownership. Monitor generation failures and provider cost per account,
 and reconcile Stripe entitlements during operational incident recovery.
+
+Administrator AI generation is free and never consumes trial or purchased credits. Creator accounts retain their 20-question lifetime trial, followed by paid credits or the £10.99 monthly plan.
