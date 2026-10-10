@@ -1,0 +1,11 @@
+# Document question import
+
+The quiz editor now accepts DOCX, XLSX, PPTX, readable PDF, CSV, TXT and Markdown in place of JSON paste. Imports read existing questions using a human-readable numbered layout or spreadsheet columns. They do not call AI or consume question credits. Preview and load into the editor before saving; missing answers use an invalid index (-1), not a guessed answer, and incomplete options/explanations are flagged. Normal save validation still applies. Loading a replacement draft requires confirmation.
+
+Text layout: optional Title/Subject/Instructions, numbered question, options A–D, Answer: B, Explanation: text. A separate Answer key with numbered letter entries is supported. Spreadsheet headers: Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation; optional Title, Subject, Instructions. Correct answers use A–D, 1–4, or exact option text. Downloadable TXT and CSV examples are in public/.
+
+Office files are read with the existing JSZip dependency. Office expansion is bounded by entry count, individual declared expanded sizes and total declared expanded size. Excel reads cell values/shared strings and cached formula results, never executes formulas or macros. PDFs use unpdf’s serverless PDF.js build and are limited to 100 pages; images/scans need OCR outside this importer. Embedded pictures, diagrams and formatting are not migrated. Old DOC/XLS/PPT formats must be saved as DOCX/XLSX/PPTX. Arbitrary unstructured lesson notes belong in AI generation. Unrecognised formats return actionable errors instead of inventing questions.
+
+Limits: one file up to 8 MB, 50 questions, 400,000 readable characters, 100 PowerPoint slides, 10 Excel sheets and 1,000 rows per sheet; 15 imports per authenticated user per fixed 15-minute window. Multipart body reads are bounded before parsing. Import is authenticated, origin-protected, owner-mode explicit, and neither saves uploaded documents nor sends them to external providers. No migrations required. PDF parsing uses the request event loop; complex PDFs may still exceed runtime resource limits and should be split.
+
+Validation includes real format fixtures, parser safety/error cases, creator/admin separation, no-credit charging, existing platform API tests, TypeScript and a production build. Managed browser QA is unavailable.

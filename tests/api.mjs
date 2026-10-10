@@ -224,3 +224,17 @@ assert.equal((await teamCall('POST',{action:'join',name:'Overflow',token:t2})).s
 sql.prepare('UPDATE arena_rooms SET expires=? WHERE code=?').run(Date.now()-1,teamCode);assert.equal((await teamCall('GET')).status,404);assert.equal((await teamCall('DELETE',null,host)).status,200,'Organiser can delete expired stored rooms');
 const adminRoom=await arena.POST(req('/api/arena?admin=1','POST',{...arenaEvent,quizId:diagramQuizId}));assert.equal(adminRoom.status,201);const adminCode=(await adminRoom.json()).code;const adminParams={params:Promise.resolve({code:adminCode})};assert.equal((await roomApi.GET(req('/api/arena/'+adminCode+'?host=1&admin=1'),adminParams)).status,200);assert.equal((await roomApi.GET(arenaReq('/api/arena/'+adminCode+'?host=1', 'GET',null,bothHeaders),adminParams)).status,403,'Same-browser creator cannot inherit an admin room');await roomApi.DELETE(req('/api/arena/'+adminCode+'?admin=1','DELETE'),adminParams);
 console.log('Passed: Arena creator/admin ownership isolation, CSRF, validation, unique names, idempotent joins, immutable quiz snapshot, hidden answers and future visuals, server deadlines, pause/resume, stale host commands, concurrent answer deduplication, delayed leaderboard scoring, reconnect, team mode, entry cap, shared ranks, room expiry and deletion.');
+
+// Document imports remain free and preserve explicit creator/admin separation.
+await build({entryPoints:['app/api/quiz-import/route.ts'],outfile:'.sites-runtime/test-import-api.mjs',bundle:true,platform:'node',format:'esm',plugins:[plugin]});
+const importApi=await import('../.sites-runtime/test-import-api.mjs');
+function importRequest(headers={},path='/api/quiz-import',contents='1. What is 2 + 2?\nA. 3\nB. 4\nC. 5\nD. 6\nAnswer: B\nExplanation: Adding two and two gives four.',name='quiz.txt'){const form=new FormData();form.set('file',new File([contents],name));return new Request(root+path,{method:'POST',headers:{Origin:root,...headers},body:form});}
+assert.equal((await importApi.POST(importRequest())).status,401);
+assert.equal((await importApi.POST(importRequest({cookie:diagramCookie,Origin:'https://evil.test'}))).status,403);
+assert.equal((await importApi.POST(importRequest({cookie:diagramCookie},'/api/quiz-import?admin=1'))).status,401);
+const importBalance=sql.prepare('SELECT free_remaining,credits FROM ai_wallets WHERE user_id=?').get(diagramUserId);
+const imported=await importApi.POST(importRequest(bothHeaders));assert.equal(imported.status,200);assert.equal((await imported.json()).quiz.questions[0].correct,1);
+assert.deepEqual(sql.prepare('SELECT free_remaining,credits FROM ai_wallets WHERE user_id=?').get(diagramUserId),importBalance,'Imports do not consume AI question credits');
+assert.equal((await importApi.POST(importRequest(bothHeaders,'/api/quiz-import?admin=1'))).status,200);
+assert.equal((await importApi.POST(importRequest({cookie:diagramCookie},'/api/quiz-import','lesson notes','quiz.doc'))).status,400);
+console.log('Passed: import creator/admin authorization, origin protection, answer preservation, unsupported format errors and no AI credit charges.');

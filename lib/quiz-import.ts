@@ -1,0 +1,56 @@
+import JSZip from 'jszip';
+import {officeText} from './ai-source';
+export const IMPORT_BYTES=8*1024*1024,IMPORT_CHARS=400000;
+const decode=(s:string)=>s.replace(/&#x([\da-f]+);|&#(\d+);|&(amp|lt|gt|quot|apos);/gi,(all,h,d,n)=>n?({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"} as any)[n.toLowerCase()]:Number.parseInt(h||d,h?16:10)<=0x10ffff?String.fromCodePoint(Number.parseInt(h||d,h?16:10)):all);
+const textRuns=(s:string)=>Array.from(s.matchAll(/<(?:\w+:)?t(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?t>/g),m=>decode(m[1])).join('');
+const clean=(s:string)=>s.replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ').trim();
+export function answerIndex(value:string,options:string[]){const v=value.trim();if(!v)return -1;if(/^[A-D]$/i.test(v))return v.toUpperCase().charCodeAt(0)-65;if(/^[1-4]$/.test(v))return Number(v)-1;return options.findIndex(o=>o.trim().toLowerCase()===v.toLowerCase());}
+type DraftQuestion={prompt:string;options:string[];correct:number;explanation:string};
+function finish(title:string,subject:string,description:string,questions:DraftQuestion[]){
+ if(!questions.length)throw Error('No questions were recognised. Use the sample layout or spreadsheet template, with a question and options A–D. For lesson notes, use AI generation.');
+ if(questions.length>50)throw Error('Import up to 50 questions at a time. Split the document into smaller quizzes.');
+ const warnings:string[]=[];questions.forEach((q,i)=>{if(!q.prompt||q.prompt.length>1500||q.options.some(o=>o.length>600)||q.explanation.length>2000)throw Error('Question '+(i+1)+' exceeds the editor limits. Shorten it in your file.');if(q.options.filter(Boolean).length!==4||new Set(q.options).size!==4)warnings.push('Question '+(i+1)+': complete four distinct options.');if(q.correct<0)warnings.push('Question '+(i+1)+': select the correct answer.');if(!q.explanation)warnings.push('Question '+(i+1)+': add an answer explanation.');});
+ if(title.length>120||subject.length>80||description.length>1000)throw Error('Shorten the title (120 characters), subject (80) or instructions (1,000) in your document.');
+ return {quiz:{title,subject,description:description||'Choose one answer for each question.',questions},warnings};
+}
+export function parseQuizText(source:string,filename:string){
+ if(source.length>IMPORT_CHARS)throw Error('Use a document with up to 400,000 readable characters.');
+ let title=filename.replace(/\.[^.]+$/,''),subject='',description='';const questions:DraftQuestion[]=[];let q:DraftQuestion|null=null,field='prompt',answer='';let keyMode=false;const keys=new Map<number,string>(),numbers:number[]=[];
+ const flush=()=>{if(q){q.correct=answer?answerIndex(answer,q.options):-1;questions.push(q)}q=null;answer='';field='prompt'};
+ for(const raw of clean(source).split('\n')){const line=raw.trim();if(!line)continue;
+  if(/^answer\s*key\s*:?(?:\s*)$/i.test(line)){flush();keyMode=true;continue;}
+  if(keyMode){const key=line.match(/^(?:Q(?:uestion)?\s*)?(\d+)\s*[).:\-]\s*([A-D1-4])\s*$/i);if(key)keys.set(Number(key[1])-1,key[2]);continue;}
+  const start=line.match(/^(?:Q(?:uestion)?\s*(\d+)\s*[).:\-]?|(\d+)\s*[).])\s*(.+)$/i);if(start){flush();const number=Number(start[1]||start[2]);if(numbers.includes(number))throw Error('Use a unique number for each question.');numbers.push(number);q={prompt:start[3],options:['','','',''],correct:-1,explanation:''};continue;}
+  if(!q){const meta=line.match(/^(title|quiz title|subject|module|instructions|description)\s*:\s*(.*)$/i);if(meta){if(/title/i.test(meta[1]))title=meta[2];else if(/subject|module/i.test(meta[1]))subject=meta[2];else description=meta[2];}continue;}
+  const option=line.match(/^([A-E])\s*[).:\-]\s*(.*)$/i);if(option){if(option[1].toUpperCase()==='E')throw Error('Question '+(questions.length+1)+' has five options. QuizMint supports four options, A–D.');field=option[1].toUpperCase();q.options[field.charCodeAt(0)-65]=option[2];continue;}
+  const correct=line.match(/^(?:correct(?:\s+answer)?|answer)\s*:\s*(.*)$/i);if(correct){answer=correct[1].trim().replace(/^([A-D1-4])[).]\s*.*$/i,'$1');field='answer';continue;}
+  const explanation=line.match(/^(?:explanation|feedback|reason)\s*:\s*(.*)$/i);if(explanation){q.explanation=explanation[1];field='explanation';continue;}
+  if(field==='prompt')q.prompt+='\n'+line;else if(field==='explanation')q.explanation+='\n'+line;else if(/^[A-D]$/.test(field))q.options[field.charCodeAt(0)-65]+='\n'+line;
+ }
+ flush();for(const [i,key] of keys){const index=numbers.indexOf(i+1);if(index>=0)questions[index].correct=answerIndex(key,questions[index].options);}
+ return finish(title,subject,description,questions);
+}
+export function csvRows(source:string){const rows:string[][]=[],row:string[]=[];let value='',quoted=false;for(let i=0;i<source.length;i++){const c=source[i];if(c==='"'){if(quoted&&source[i+1]==='"'){value+='"';i++}else quoted=!quoted;}else if(!quoted&&(c===','||c==='\t')){row.push(value);value='';}else if(!quoted&&(c==='\n'||c==='\r')){if(c==='\r'&&source[i+1]==='\n')i++;row.push(value);rows.push(row.splice(0));value='';}else value+=c;}if(quoted)throw Error('A spreadsheet cell has an unclosed quote. Export the sheet as CSV again.');row.push(value);if(row.some(Boolean))rows.push(row);return rows;}
+export function parseQuizRows(rows:string[][],filename:string){
+ const normalize=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');const header=rows.findIndex(r=>r.some(c=>['question','prompt'].includes(normalize(c))));if(header<0)throw Error('Add a spreadsheet header row: Question, Option A, Option B, Option C, Option D, Correct Answer, Explanation.');
+ const headings=rows[header].map(normalize);const col=(names:string[])=>headings.findIndex(h=>names.includes(h));const prompt=col(['question','prompt']),options=['a','b','c','d'].map(c=>col(['option'+c,'answer'+c,c])),correct=col(['correctanswer','correct','answer']),explanation=col(['explanation','feedback','reason']);if(options.some(i=>i<0))throw Error('The spreadsheet needs columns Option A, Option B, Option C and Option D.');
+ const titleCol=col(['title','quiztitle']),subjectCol=col(['subject','module']),descCol=col(['instructions','description']);let title=filename.replace(/\.[^.]+$/,''),subject='',description='';const questions:DraftQuestion[]=[];
+ for(const row of rows.slice(header+1)){if(!row.some(c=>c.trim()))continue;if(!row[prompt]?.trim())throw Error('A spreadsheet row has options but no question. Remove empty rows or complete its Question cell.');const opts=options.map(i=>(row[i]||'').trim());questions.push({prompt:row[prompt].trim(),options:opts,correct:correct>=0?answerIndex(row[correct]||'',opts):-1,explanation:explanation>=0?(row[explanation]||'').trim():''});if(questions.length===1){if(titleCol>=0&&row[titleCol])title=row[titleCol].trim();if(subjectCol>=0)subject=(row[subjectCol]||'').trim();if(descCol>=0)description=(row[descCol]||'').trim();}}
+ return finish(title,subject,description,questions);
+}
+async function officeZip(bytes:Uint8Array){if(bytes[0]!==80||bytes[1]!==75)throw Error('This is not a valid Office document. Save it as DOCX, XLSX or PPTX.');const zip=await JSZip.loadAsync(bytes);let size=0;const entries=Object.values(zip.files);if(entries.length>2000)throw Error('This Office document is too complex. Export a smaller file.');for(const f of entries){const n=(f as any)._data?.uncompressedSize||0;size+=n;if(n>8*1024*1024||size>24*1024*1024)throw Error('The expanded Office document is too large. Split it into smaller files.');}return zip;}
+async function xmlFile(zip:JSZip,path:string){const f=zip.file(path);return f?f.async('string'):'';}
+function spreadsheetRows(xml:string,shared:string[]){const rows:string[][]=[];for(const r of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)){const row:string[]=[];for(const c of r[1].matchAll(/<c\b([^>]*)>([\s\S]*?)<\/c>/g)){const ref=c[1].match(/\br="([A-Z]+)\d+"/)?.[1];if(!ref)continue;let index=0;for(const ch of ref)index=index*26+ch.charCodeAt(0)-64;index--;if(index>50)continue;const type=c[1].match(/\bt="([^"]+)"/)?.[1];const v=c[2].match(/<v(?:\s[^>]*)?>([\s\S]*?)<\/v>/)?.[1]||'';row[index]=type==='s'?(shared[Number(v)]||''):type==='inlineStr'?textRuns(c[2]):decode(v);}rows.push(Array.from({length:row.length},(_,i)=>row[i]||''));if(rows.length>1000)throw Error('Use a spreadsheet with up to 1,000 rows.');}return rows;}
+export async function importQuizFile(file:File){
+ if(!file.size||file.size>IMPORT_BYTES)throw Error('Upload one document up to 8 MB.');const ext=file.name.split('.').pop()?.toLowerCase();const bytes=new Uint8Array(await file.arrayBuffer());
+ if(ext==='csv'){const source=new TextDecoder().decode(bytes);if(source.length>IMPORT_CHARS)throw Error('This CSV is too large. Split the file.');return parseQuizRows(csvRows(source),file.name);}
+ if(ext==='txt'||ext==='md')return parseQuizText(new TextDecoder().decode(bytes),file.name);
+ if(ext==='docx'||ext==='pptx'||ext==='xlsx'){
+  const zip=await officeZip(bytes);
+  if(ext==='docx'){const xml=await xmlFile(zip,'word/document.xml');if(!xml)throw Error('The Word document is invalid.');return parseQuizText(officeText(xml,'docx'),file.name);}
+  if(ext==='pptx'){const slides=Object.keys(zip.files).filter(p=>/^ppt\/slides\/slide\d+\.xml$/.test(p)).sort((a,b)=>Number(a.match(/slide(\d+)/)?.[1])-Number(b.match(/slide(\d+)/)?.[1]));if(!slides.length||slides.length>100)throw Error('Use a PowerPoint with 1–100 slides.');const texts:string[]=[];for(const p of slides)texts.push(officeText(await xmlFile(zip,p),'pptx'));return parseQuizText(texts.join('\n\n'),file.name);}
+  const shared=Array.from((await xmlFile(zip,'xl/sharedStrings.xml')).matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g),m=>textRuns(m[1]));const sheets=Object.keys(zip.files).filter(p=>/^xl\/worksheets\/sheet\d+\.xml$/.test(p)).sort((a,b)=>Number(a.match(/sheet(\d+)/)?.[1])-Number(b.match(/sheet(\d+)/)?.[1]));if(!sheets.length||sheets.length>10)throw Error('Use an Excel workbook with 1–10 sheets.');const rows:string[][]=[];for(const p of sheets){const sheet=spreadsheetRows(await xmlFile(zip,p),shared);if(rows.length&&sheet[0]?.some(c=>/^question|prompt$/i.test(c)))sheet.shift();rows.push(...sheet);}return parseQuizRows(rows,file.name);
+ }
+ if(ext==='pdf'){if(new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')throw Error('Upload a valid PDF.');const {getDocumentProxy}=await import('unpdf');const pdf=await getDocumentProxy(bytes);try{if(pdf.numPages>100)throw Error('Use a PDF with up to 100 pages.');const lines:string[]=[];let length=0;for(let page=1;page<=pdf.numPages;page++){const p=await pdf.getPage(page);const content=await p.getTextContent();let line='';for(const item of content.items){if(!('str' in item))continue;line+=(line?' ':'')+item.str;if(item.hasEOL){lines.push(line);length+=line.length;line='';}}if(line){lines.push(line);length+=line.length;}if(length>IMPORT_CHARS)throw Error('The PDF contains too much text. Split the file.');p.cleanup();}const text=lines.join('\n');if(text.trim().length<10)throw Error('No readable text was found. Scanned/image-only PDFs need OCR first; export readable text or use a Word/Excel template.');return parseQuizText(text,file.name);}finally{await pdf.loadingTask.destroy();}}
+ throw Error('Use DOCX, XLSX, PPTX, PDF, CSV, TXT or Markdown. For older DOC/XLS/PPT files, save a modern copy first.');
+}

@@ -1,0 +1,19 @@
+Title: My quiz
+Subject: Maths
+Instructions: Choose one answer.
+
+1. What is 2 + 2?
+A. 3
+B. 4
+C. 5
+D. 6
+Answer: B
+Explanation: Adding two and two gives four.
+
+2. What is 3 + 3?
+A. 5
+B. 6
+C. 7
+D. 8
+Answer: B
+Explanation: Adding three and three gives six.

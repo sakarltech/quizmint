@@ -1,0 +1,8 @@
+import {aiUser} from '../../../lib/ai-server';
+import {response,sameOrigin} from '../../../lib/server';
+import {throttle} from '../../../lib/accounts';
+import {IMPORT_BYTES,importQuizFile} from '../../../lib/quiz-import';
+export const dynamic='force-dynamic';
+export async function POST(req:Request){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const user=await aiUser(req);if(!user)return response({error:'Creator sign-in required.'},401);
+ try{if(!await throttle('quiz-import:'+user!.id,15))return response({error:'Please wait before importing again. Limit: 15 imports per 15 minutes.'},429);const reader=req.body?.getReader();if(!reader)throw Error('Choose a document.');const chunks:Uint8Array[]=[];let size=0;for(;;){const r=await reader.read();if(r.done)break;size+=r.value.byteLength;if(size>IMPORT_BYTES+100000){await reader.cancel();return response({error:'Upload one document up to 8 MB.'},413);}chunks.push(r.value);}const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}const form=await new Request(req.url,{method:'POST',headers:{'Content-Type':req.headers.get('Content-Type')||''},body:bytes}).formData();const file=form.get('file');if(!(file instanceof File))throw Error('Choose a document.');const result=await importQuizFile(file);return response(result);
+ }catch(e){const message=e instanceof Error?e.message:'';if(/password/i.test(message))return response({error:'Remove the document password before importing.'},400);return response({error:message.length<350&&message?message:'This document could not be read. Export a fresh copy or use the template.'},400);}}
