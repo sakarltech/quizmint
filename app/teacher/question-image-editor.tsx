@@ -1,0 +1,16 @@
+'use client';
+import {useState} from 'react';
+import QuestionImage,{QuestionImageData} from '../../components/question-image';
+async function optimise(file:File){
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024)throw Error('Choose a PNG, JPG or WebP file up to 10 MB.');
+ const url=URL.createObjectURL(file);try{
+  const img=new Image();img.src=url;await img.decode();if(img.width*img.height>25000000)throw Error('Choose an image smaller than 25 megapixels.');
+  const scale=Math.min(1,1400/Math.max(img.width,img.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
+  const ctx=canvas.getContext('2d');if(!ctx)throw Error('Image processing is unavailable in this browser.');ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/webp',0.9));if(!blob||blob.size>600*1024)throw Error('This image is too detailed. Choose a smaller or simpler image.');return blob;
+ }finally{URL.revokeObjectURL(url);}
+}
+export default function QuestionImageEditor({image,onChange,adminMode,onBusy}:{image?:QuestionImageData;onChange:(image:QuestionImageData|undefined)=>void;adminMode:boolean;onBusy:(busy:boolean)=>void}){
+ const [busy,setBusy]=useState(false),[error,setError]=useState('');const suffix=adminMode?'?admin=1':'';
+ return <div className="question-image-editor"><h3>Optional diagram or picture</h3><p className="fine">Add a clear diagram, shape, counting picture or illustration. Avoid showing the answer. Images are resized automatically.</p>{error&&<p className="alert" role="alert">{error}</p>}{image?<><QuestionImage image={image} adminMode={adminMode}/><label>Image description (for accessibility)<input required maxLength={500} value={image.alt} placeholder="e.g. Three red apples and two green apples" onChange={e=>onChange({...image,alt:e.target.value})}/></label><label>Caption (optional)<input maxLength={300} value={image.caption||''} placeholder="e.g. Look at the apples before choosing an answer." onChange={e=>onChange({...image,caption:e.target.value})}/></label><button type="button" className="btn small outline" disabled={busy} onClick={async()=>{setBusy(true);onBusy(true);try{const r=await fetch('/api/question-images/'+image.id+suffix,{method:'DELETE'});if(!r.ok)throw Error('Unable to remove this image. Please retry.');onChange(undefined);}catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);}}}>Remove image</button></>:<label>Upload image<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={async e=>{const file=e.target.files?.[0];if(!file)return;setBusy(true);onBusy(true);setError('');try{const blob=await optimise(file);const r=await fetch('/api/question-images'+suffix,{method:'POST',headers:{'Content-Type':blob.type},body:blob});const x:any=await r.json();if(!r.ok)throw Error(x.error);onChange({id:x.id,alt:'',caption:''});}catch(e){setError((e as Error).message);}finally{setBusy(false);onBusy(false);e.target.value='';}}}/><span className="fine">{busy?'Preparing and uploading image…':'PNG, JPG or WebP · up to 10 MB before resizing. Add a description after uploading.'}</span></label>}</div>;
+}
