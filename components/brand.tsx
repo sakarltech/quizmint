@@ -1,1 +1,1 @@
-export default function Brand(){return <a className="brand" href="/" aria-label="QuizMint home"><img src="/quizmint-mark.svg" alt="" width={38} height={38}/><span>quiz<span className="brand-light">mint</span></span></a>;}
+export default function Brand(){return <a className="brand" href="/" aria-label="QuizMint home"><img src="/quizmint-emblem.webp" alt="" width={44} height={44}/><span className="brand-wordmark">Quiz<span className="brand-light">Mint</span></span></a>;}
