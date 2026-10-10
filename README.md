@@ -150,7 +150,7 @@ Inputs: topic, pasted text, PDF (including scans via the vision-capable model), 
 PPTX, TXT, Markdown, CSV, HTML and JSON. Legacy/other formats can be pasted as text.
 Audio/video use the speech transcription endpoint (MP3, MP4 with audio, M4A, WAV,
 WebM, MPEG, MPGA, OGG). Silent videos and visual scene analysis are unsupported.
-Limits: 8 MB per upload, 40,000 characters of extracted text, 10 minutes of media,
+Limits: 8 MB per upload, 400,000 characters of extracted text, 10 minutes of media,
 50 questions/request and 15 requests/15 minutes per account. Very large or complex
 PDFs may fail. DOCX/PPTX decompression is bounded to 20 MB and 1,000 entries.
 
@@ -182,3 +182,5 @@ verify mailbox ownership. Monitor generation failures and provider cost per acco
 and reconcile Stripe entitlements during operational incident recovery.
 
 Administrator AI generation is free and never consumes trial or purchased credits. Creator accounts retain their 20-question lifetime trial, followed by paid credits or the £10.99 monthly plan.
+
+Long text, Word documents and PowerPoint decks are split at paragraph boundaries into roughly 20,000-character sections. Four bounded workers extract learning notes from every section before generating the requested quiz across those notes. Nothing is silently truncated. Short sources and PDFs use the direct generation path. Questions are validated and duplicate prompts rejected; any failed section or generation refunds the original question reservation. Long-source processing may take several minutes; files are not persisted.
