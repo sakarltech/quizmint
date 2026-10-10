@@ -4,9 +4,9 @@ The shared `components/brand.tsx` renders the same photorealistic emerald enamel
 
 Logo assets preserve the generated transparent background:
 
-- `public/quizmint-emblem.webp`: 384px website mark, optimized for header use.
+- `public/quizmint-emblem.webp`: 384px optimized source variant.
 - `public/quizmint-emblem-icon.png`: 64px browser icon.
-- `public/quizmint-emblem-apple.png`: 180px Apple touch icon.
+- `public/quizmint-emblem-apple.png`: 180px shared website mark and Apple touch icon. PNG provides the correct image MIME type through the current hosting asset service.
 
 Created with the built-in image-generation tool. This is photorealistic generated artwork, not a photograph of a manufactured item. Export sizes only change resolution and encoding; the artwork is unchanged. The master is the generated image supplied in the conversation.
 
