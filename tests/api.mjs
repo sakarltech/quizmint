@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync,readdirSync} from 'node:fs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);const {build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
+const sql=new DatabaseSync(':memory:');sql.exec(readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort().map(f=>readFileSync('drizzle/'+f,'utf8')).join('\n').replaceAll('--> statement-breakpoint',''));
+class Statement{constructor(query){this.query=query;this.values=[];}bind(...v){this.values=v;return this;}async all(){return {results:sql.prepare(this.query).all(...this.values)};}async first(){return sql.prepare(this.query).get(...this.values)||null;}async run(){return sql.prepare(this.query).run(...this.values);}}
+globalThis.__testEnv={DB:{prepare:q=>new Statement(q),batch:async qs=>{sql.exec('BEGIN');try{const out=[];for(const q of qs)out.push(await q.run());sql.exec('COMMIT');return out;}catch(e){sql.exec('ROLLBACK');throw e;}}},QUIZ_TEACHER_EMAIL:'teacher@example.test'};
+const plugin={name:'test-worker-env',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__testEnv',loader:'js'}));}};
+await build({entryPoints:['app/api/teacher/route.ts'],outfile:'.sites-runtime/test-teacher.mjs',bundle:true,platform:'node',format:'esm',plugins:[plugin]});
+await build({entryPoints:['app/api/quiz/[id]/route.ts'],outfile:'.sites-runtime/test-student.mjs',bundle:true,platform:'node',format:'esm',plugins:[plugin]});
+const teacher=await import('../.sites-runtime/test-teacher.mjs');const student=await import('../.sites-runtime/test-student.mjs');
+const root='https://example.test';
+function req(path,method='GET',data,auth=true,origin=root){return new Request(root+path,{method,headers:{...(auth?{'oai-authenticated-user-id':'test-teacher','oai-authenticated-user-email':'teacher@example.test'}:{}),Origin:origin,'Content-Type':'application/json'},...(data?{body:JSON.stringify(data)}:{})});}
+assert.equal((await teacher.GET(req('/api/admin','GET',null,false))).status,401);
+assert.equal((await teacher.GET(new Request(root+'/api/admin',{headers:{'oai-authenticated-user-id':'student','oai-authenticated-user-email':'student@example.test'}}))).status,401);
+const draft={title:'Test quiz',subject:'Testing',description:'One correct option',questions:[{prompt:'What is 2 + 2?',options:['3','4','5','6'],correct:1,explanation:'Adding two and two gives four.'},{prompt:'What is 1 + 1?',options:['1','2','3','4'],correct:1,explanation:'Adding one and one gives two.'}]};
+assert.equal((await teacher.POST(req('/api/admin','POST',draft,true,'https://evil.test'))).status,403);
+assert.equal((await teacher.POST(req('/api/admin','POST',{...draft,questions:[{...draft.questions[0],options:['4','4','5','6']}]}))).status,400);
+const created=await teacher.POST(req('/api/admin','POST',draft));assert.equal(created.status,201);const {id}=await created.json();const params={params:Promise.resolve({id})};
+const publicQuiz=await (await student.GET(req('/api/quiz/'+id,'GET',null,false),params)).json();assert.equal(publicQuiz.questions.length,2);assert.ok(!('correct'in publicQuiz.questions[0]));assert.ok(!('explanation'in publicQuiz.questions[0]));
+const attemptId=crypto.randomUUID();const submission={student:'Student@example.test',answers:[1,0],attemptId};
+assert.equal((await student.POST(req('/api/quiz/'+id,'POST',{...submission,answers:[1]},false),params)).status,400);
+const result=await (await student.POST(req('/api/quiz/'+id,'POST',submission,false),params)).json();assert.equal(result.score,1);assert.equal(result.total,2);assert.equal(result.feedback[0].isCorrect,true);assert.equal(result.feedback[1].isCorrect,false);assert.equal(result.feedback[1].correct,1);
+const retry=await (await student.POST(req('/api/quiz/'+id,'POST',{...submission,answers:[1,1]},false),params)).json();assert.equal(retry.score,1);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM attempts').get().n,1);
+const data=await (await teacher.GET(req('/api/admin?results='+id))).json();assert.equal(data.attempts.length,1);assert.equal(data.quizzes[0].average,50);
+await teacher.PATCH(req('/api/admin','PATCH',{id,active:false}));assert.equal((await student.GET(req('/api/quiz/'+id),params)).status,410);assert.equal((await student.POST(req('/api/quiz/'+id,'POST',submission,false),params)).status,410);
+const demoParams={params:Promise.resolve({id:'demo'})};const demo=await (await student.POST(req('/api/quiz/demo','POST',{student:'practice@example.test',answers:[1,2,0,3,0]},false),demoParams)).json();assert.equal(demo.score,5);assert.equal(demo.demo,true);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM attempts').get().n,1);
+assert.equal((await teacher.DELETE(req('/api/admin?id='+id,'DELETE',null,false))).status,403);await teacher.DELETE(req('/api/admin?id='+id,'DELETE'));assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM attempts').get().n,0);assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM quizzes').get().n,0);
+console.log('Passed: teacher authorization, origin protection, quiz validation, hidden answers, grading, incomplete submissions, retry deduplication, saved results, closing quizzes, sample isolation and deletion.');
+
+await build({entryPoints:['app/api/account/route.ts'],outfile:'.sites-runtime/test-account.mjs',bundle:true,platform:'node',format:'esm',plugins:[plugin]});
+const account=await import('../.sites-runtime/test-account.mjs');
+function accountReq(action,email,password){return req('/api/account','POST',{action,email,password},false);}
+assert.equal((await account.POST(accountReq('register','invalid','a-secure-test-password'))).status,400);
+assert.equal((await account.POST(accountReq('register','a@example.test','short'))).status,400);
+const registration=await account.POST(accountReq('register','A@example.test','a-secure-test-password'));assert.equal(registration.status,200);
+const cookie=registration.headers.get('set-cookie').split(';')[0];assert.ok(registration.headers.get('set-cookie').includes('HttpOnly; Secure; SameSite=Lax'));
+assert.notEqual(sql.prepare('SELECT password_hash FROM creator_users').get().password_hash,'a-secure-test-password');
+assert.equal((await account.POST(accountReq('login','a@example.test','wrong-password'))).status,401);
+assert.equal((await account.POST(accountReq('login','a@example.test','a-secure-test-password'))).status,200);
+assert.equal((await account.POST(accountReq('register','a@example.test','a-secure-test-password'))).status,400);
+const regB=await account.POST(accountReq('register','b@example.test','another-test-password'));assert.equal(regB.status,200);const cookieB=regB.headers.get('set-cookie').split(';')[0];
+function asCreator(path,method='GET',data,c=cookie){return new Request(root+path,{method,headers:{cookie:c,Origin:root,'Content-Type':'application/json'},...(data?{body:JSON.stringify(data)}:{})});}
+assert.equal((await teacher.GET(req('/api/teacher'))).status,401,'OpenAI admin must use admin endpoint');
+assert.equal((await teacher.GET(asCreator('/api/admin'))).status,401,'Password accounts cannot access admin');
+const own=await teacher.POST(asCreator('/api/teacher','POST',draft));assert.equal(own.status,201);const ownId=(await own.json()).id;
+assert.equal((await (await teacher.GET(asCreator('/api/teacher'))).json()).quizzes.length,1);
+assert.equal((await (await teacher.GET(asCreator('/api/teacher','GET',null,cookieB))).json()).quizzes.length,0);
+assert.equal((await teacher.GET(asCreator('/api/teacher?results='+ownId,'GET',null,cookieB))).status,404);
+assert.equal((await teacher.PATCH(asCreator('/api/teacher','PATCH',{id:ownId,active:false},cookieB))).status,404);
+assert.equal((await teacher.DELETE(asCreator('/api/teacher?id='+ownId,'DELETE',null,cookieB))).status,404);
+assert.equal((await (await teacher.GET(req('/api/admin'))).json()).quizzes.length,1);
+const qp={params:Promise.resolve({id:ownId})};
+assert.equal((await student.POST(req('/api/quiz/'+ownId,'POST',{student:'not-an-email',answers:[1,1],attemptId:crypto.randomUUID()},false),qp)).status,400);
+const emailed=await (await student.POST(req('/api/quiz/'+ownId,'POST',{student:'Student@Example.test',answers:[1,1],attemptId:crypto.randomUUID()},false),qp)).json();assert.equal(emailed.student,'student@example.test');assert.equal(emailed.score,2);
+assert.equal((await account.DELETE(asCreator('/api/account','DELETE'))).status,200);
+assert.equal((await teacher.GET(asCreator('/api/teacher'))).status,401,'Signed-out session revoked');
+const hash=sql.prepare('SELECT token_hash FROM creator_sessions WHERE user_id=(SELECT id FROM creator_users WHERE email=?)').get('b@example.test').token_hash;sql.prepare('UPDATE creator_sessions SET expires=0 WHERE token_hash=?').run(hash);
+assert.equal((await teacher.GET(asCreator('/api/teacher','GET',null,cookieB))).status,401,'Expired session denied');
+let limited;for(let n=0;n<13;n++)limited=await account.POST(accountReq('login','throttled@example.test','wrong-password'));assert.equal(limited.status,429);
+console.log('Passed: email/password registration and login, secure cookies, password hashing, creator isolation, admin separation, student email validation, session revocation/expiry and rate limits.');
+
+await build({entryPoints:['app/api/ai/route.ts','app/api/ai/generate/route.ts','app/api/ai/webhook/route.ts','app/api/ai/billing/route.ts','lib/ai-plans.ts'],outdir:'.sites-runtime/ai-tests',outbase:'.',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[plugin]});
+const ai=await import('../.sites-runtime/ai-tests/app/api/ai/route.mjs');
+const generate=await import('../.sites-runtime/ai-tests/app/api/ai/generate/route.mjs');
+const webhook=await import('../.sites-runtime/ai-tests/app/api/ai/webhook/route.mjs');
+const billing=await import('../.sites-runtime/ai-tests/app/api/ai/billing/route.mjs');
+const {allocation,verifyStripe}=await import('../.sites-runtime/ai-tests/lib/ai-plans.mjs');
+assert.deepEqual(allocation(3,10,8,false),{free:3,paid:5});assert.throws(()=>allocation(2,0,3,false));assert.throws(()=>allocation(20,0,51,true));assert.deepEqual(allocation(20,0,50,true),{free:0,paid:0});
+assert.equal((await ai.GET(req('/api/ai','GET',null,false))).status,401);
+const initial=await (await ai.GET(req('/api/ai'))).json();assert.equal(initial.freeRemaining,20);assert.equal(initial.aiEnabled,false);
+assert.equal((await billing.POST(req('/api/ai/billing','POST',{plan:'starter'}))).status,503);
+function genRequest(n,id=crypto.randomUUID(),origin=root){const form=new FormData();form.set('count',String(n));form.set('sourceType','topic');form.set('source','Simple arithmetic for primary school pupils');form.set('requestId',id);return new Request(root+'/api/ai/generate',{method:'POST',headers:{Origin:origin,'oai-authenticated-user-id':'test-teacher','oai-authenticated-user-email':'teacher@example.test'},body:form});}
+assert.equal((await generate.POST(genRequest(2))).status,503);assert.equal((await generate.POST(genRequest(2,crypto.randomUUID(),'https://evil.test'))).status,403);
+globalThis.__testEnv.OPENAI_API_KEY='test-only';globalThis.__testEnv.STRIPE_SECRET_KEY='test-only';globalThis.__testEnv.STRIPE_WEBHOOK_SECRET='test-webhook-secret';
+const actualFetch=globalThis.fetch;let calls=0;let fail=false;
+globalThis.fetch=async(url,options)=>{if(String(url).includes('openai.com')){calls++;if(fail)return Response.json({error:'test failure'},{status:500});const payload=JSON.parse(options.body);const n=Number(payload.instructions.match(/exactly (\d+)/)[1]);return Response.json({output:[{content:[{type:'output_text',text:JSON.stringify({...draft,questions:Array.from({length:n},(_,i)=>({...draft.questions[0],prompt:'Arithmetic question '+i+'?'}))})}]}]});}if(String(url).includes('checkout/sessions'))return Response.json({url:'https://checkout.stripe.com/test'});if(String(url).includes('subscriptions/'))return Response.json({metadata:{user_id:'admin:test-teacher',plan:'monthly'},status:'active',customer:'cus_test',items:{data:[{current_period_end:Math.floor(Date.now()/1000)+3600}]}});return actualFetch(url,options);};
+const generationId=crypto.randomUUID();assert.equal((await generate.POST(genRequest(10,generationId))).status,200);assert.equal((await (await ai.GET(req('/api/ai'))).json()).freeRemaining,10);
+assert.equal((await generate.POST(genRequest(10,generationId))).status,200);assert.equal(calls,1,'Same generation ID does not call provider twice');
+fail=true;assert.equal((await generate.POST(genRequest(5))).status,400);assert.equal((await (await ai.GET(req('/api/ai'))).json()).freeRemaining,10,'Failure refunds free questions');fail=false;
+const callsBefore=calls;assert.equal((await generate.POST(genRequest(11))).status,400);assert.equal(calls,callsBefore,'Insufficient credits do not call provider');
+const checkout=await billing.POST(req('/api/ai/billing','POST',{plan:'starter',amount:1}));assert.equal(checkout.status,200);
+async function signedEvent(event){const raw=JSON.stringify(event);const t=String(Math.floor(Date.now()/1000));const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('test-webhook-secret'),{name:'HMAC',hash:'SHA-256'},false,['sign']);const sig=Buffer.from(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(t+'.'+raw))).toString('hex');return new Request(root+'/api/ai/webhook',{method:'POST',headers:{'stripe-signature':'t='+t+',v1='+sig},body:raw});}
+const event={type:'checkout.session.completed',data:{object:{id:'cs_test',mode:'payment',payment_status:'paid',amount_total:299,currency:'gbp',customer:'cus_test',metadata:{user_id:'admin:test-teacher',plan:'starter'}}}};
+assert.equal((await webhook.POST(new Request(root+'/api/ai/webhook',{method:'POST',body:JSON.stringify(event)}))).status,400);
+assert.equal((await webhook.POST(await signedEvent(event))).status,200);assert.equal((await webhook.POST(await signedEvent(event))).status,200);assert.equal((await (await ai.GET(req('/api/ai'))).json()).credits,50,'Duplicate payment does not grant credits twice');
+const unpaid={...event,data:{object:{...event.data.object,id:'cs_unpaid',payment_status:'unpaid'}}};assert.equal((await webhook.POST(await signedEvent(unpaid))).status,200);assert.equal((await (await ai.GET(req('/api/ai'))).json()).credits,50);
+assert.equal((await generate.POST(genRequest(15))).status,200);const mixed=await (await ai.GET(req('/api/ai'))).json();assert.equal(mixed.freeRemaining,0);assert.equal(mixed.credits,45,'Uses free allowance before purchased credits');
+assert.equal((await webhook.POST(await signedEvent({type:'invoice.paid',data:{object:{subscription:'sub_test'}}}))).status,200);assert.equal((await (await ai.GET(req('/api/ai'))).json()).unlimited,true);
+assert.equal((await generate.POST(genRequest(2))).status,200);assert.equal((await (await ai.GET(req('/api/ai'))).json()).credits,45,'Subscription preserves purchased credits');
+const restore=await (await ai.GET(req('/api/ai?latest'))).json();assert.equal(restore.quiz.questions.length,2);
+const adminId='admin:test-teacher';sql.prepare('UPDATE ai_wallets SET subscription_end=0,credits=0,free_remaining=2 WHERE user_id=?').run(adminId);
+const oldId=crypto.randomUUID();sql.prepare("INSERT INTO ai_jobs(id,user_id,free,paid,status,created) VALUES(?,?,3,0,'running',0)").run(oldId,adminId);sql.prepare('UPDATE ai_wallets SET lock_id=?,locked_until=1 WHERE user_id=?').run(oldId,adminId);
+assert.equal((await generate.POST(genRequest(5))).status,200,'Expired reservation is refunded before next generation');assert.equal((await (await ai.GET(req('/api/ai'))).json()).freeRemaining,0);
+assert.equal(await verifyStripe('{}','t=1,v1=bad','secret'),false,'Expired signature denied');
+globalThis.fetch=actualFetch;
+console.log('Passed: AI authorization, disabled-service handling, allocation, failure refunds, request idempotency, quota enforcement, signed webhooks, payment deduplication, unpaid checkout isolation, subscription entitlement, saved draft restore and timed-out reservation recovery.');

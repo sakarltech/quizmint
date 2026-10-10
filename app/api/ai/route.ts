@@ -1,0 +1,5 @@
+import {aiUser,wallet,settings} from '../../../lib/ai-server';
+import {response,db} from '../../../lib/server';
+import {plans} from '../../../lib/ai-plans';
+export const dynamic='force-dynamic';
+export async function GET(req:Request){const u=await aiUser(req);if(!u)return response({error:'Creator sign-in required.'},401);const w=await wallet(u.id);if(new URL(req.url).searchParams.has('latest')){const latest:any=await db().prepare("SELECT result FROM ai_jobs WHERE user_id=? AND status='completed' ORDER BY created DESC LIMIT 1").bind(u.id).first();return response({quiz:latest?JSON.parse(latest.result):null});}return response({freeRemaining:w.free_remaining,credits:w.credits,unlimited:w.subscription_end>Date.now(),subscriptionEnd:w.subscription_end,hasCustomer:!!w.customer,aiEnabled:!!settings().OPENAI_API_KEY,billingEnabled:!!(settings().OPENAI_API_KEY&&settings().STRIPE_SECRET_KEY&&settings().STRIPE_WEBHOOK_SECRET),plans});}
