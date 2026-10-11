@@ -1,0 +1,204 @@
+/* A bright QuizMint design system. The shared photographic mark stays in Brand. */
+:root {
+  --ink:#18322e; --green:#087962; --mint:#def8ee; --cream:#f7f8fc;
+  --muted:#526966; --line:#dce7e5; --lime:#c8f36c; --yellow:#ffdc70;
+  --purple:#6940c9; --coral:#ff8c74; --sky:#85daf0;
+  --shadow:0 16px 42px #22366312;
+}
+body {background:#f7f8fc;background-image:radial-gradient(circle at 5% 7%,#dfedff 0,transparent 28%),radial-gradient(circle at 97% 20%,#e8dcff 0,transparent 29%);}
+::selection {background:#c8f36c;color:#18322e}
+:is(a,button,input,textarea,select,summary):focus-visible {outline:3px solid #6a40ca;outline-offset:3px}
+.brand {font-family:Arial,Helvetica,sans-serif}
+.header,.qm-nav {background:#fffdfdcb;backdrop-filter:blur(14px);border-bottom:1px solid #e3e7f0}
+.header {border-radius:0 0 24px 24px}
+.text-link {color:#5633ac;font-weight:700}
+.btn {background:var(--purple);border:2px solid var(--purple);color:white;border-radius:15px;font-weight:700;box-shadow:0 6px 0 #3320751e,0 11px 25px #38218b12;transition:transform .18s,box-shadow .18s,background .18s,border-color .18s}
+.btn:hover:not(:disabled) {background:#5833b4;border-color:#5833b4;box-shadow:0 3px 0 #33207527,0 12px 26px #38218b25;transform:translateY(-3px)}
+.btn:active:not(:disabled) {transform:translateY(1px);box-shadow:0 1px 0 #33207530}
+.btn.outline {color:#46317b;border-color:#d8ccef;background:white;box-shadow:none}
+.btn.outline:hover:not(:disabled) {background:#f3edff;border-color:var(--purple)}
+.pill {background:#eee8ff;color:#5232a4;font-weight:800;letter-spacing:.6px;padding:7px 13px}
+.eyebrow {color:#5943a4;font-weight:800}
+.muted,.fine {color:var(--muted)}
+.notice {background:#e6f8ee;border-color:#b4dfca;color:#205d42}
+.alert {background:#fff0e9;border-color:#ffd2c1;color:#953b24}
+.feature-icon {background:#e8e0ff;color:#6235ba;border-radius:18px}
+.count {background:#e9e0ff;color:#5939b7}
+.header .icon-button,.icon-button {border-radius:12px}
+.header .icon-button:hover,.icon-button:hover {background:#eee8ff}
+input:not([type=radio]),textarea,select {border-color:#d1dce2;background:#fff;border-radius:13px}
+input:not([type=radio]):focus,textarea:focus,select:focus {border-color:#7952cd;box-shadow:0 0 0 4px #7945c41b}
+input[type=radio] {accent-color:#5f39be}
+
+/* Homepage: a playful colour story around the existing logo and product demo. */
+.qm-home {background:#f7f8fc;background-image:radial-gradient(circle at 13% 16%,#eee5ff 0,transparent 30%),radial-gradient(circle at 87% 20%,#d7f6eb 0,transparent 29%),radial-gradient(circle at 85% 68%,#fff0ca 0,transparent 23%)}
+.qm-nav {max-width:none;padding-left:max(48px,calc((100vw - 1184px)/2));padding-right:max(48px,calc((100vw - 1184px)/2));border-radius:0 0 23px 23px}
+.qm-desktop-nav {color:#435a55;font-weight:700}
+.qm-desktop-nav>a:hover {color:#5733ad}
+.qm-nav-signin {border:2px solid #ddd1ff;color:#5c36b5;background:#f5efff}
+.qm-hero {max-width:1280px;min-height:690px;gap:48px;padding-top:74px;padding-bottom:100px}
+.qm-hero:before {content:'✦';position:absolute;top:34px;left:45%;font-size:40px;color:#ffbc4a;transform:rotate(18deg);pointer-events:none}
+.qm-eyebrow {background:#fff;border:1px solid #d8c9fa;color:#6037bd;box-shadow:0 5px 0 #724bcc11}
+.qm-hero h1 {color:#20394d;font-weight:700;letter-spacing:-3.9px}
+.qm-hero h1 span {font-family:'Fraunces',Georgia,serif;font-style:italic;font-weight:600;color:#5c37ba;text-decoration:underline;text-decoration-color:#ffc95d;text-decoration-thickness:8px;text-underline-offset:8px}
+.qm-lead {color:#435b59;font-size:19px}
+.qm-hero-actions .btn {background:#5e38bc;border-color:#5e38bc}
+.qm-hero-actions .btn.outline {background:#fff;color:#51329e;border-color:#d9cfee}
+.qm-trust span svg {color:#087962}
+.qm-hero-glow {background:radial-gradient(circle at center,#fbe0a4 0,#f2d7fc 33%,#d7efff 72%,transparent 74%);transform:rotate(-12deg)}
+.qm-demo-card {transform:rotate(1deg);border:2px solid #e9ddfa;border-radius:32px;box-shadow:0 27px 0 #7e5fd21b,0 34px 70px #482d9a27}
+.qm-demo-heading {color:#5a419d}
+.qm-demo-heading .pill {background:#ffe9ab;color:#65441b}
+.qm-demo-tag {background:#ffdd73;color:#4b3524;box-shadow:0 7px 0 #cd9c4420}
+.qm-lightbulb {background:#ffda70;color:#573d15;box-shadow:0 9px 0 #8e6d3222;}
+.qm-demo-option {border:2px solid #e7e3f0;background:#fff;transition:transform .18s,border-color .18s,background .18s}
+.qm-demo-option:nth-child(1) .qm-letter {background:#ffdc70;color:#453323}
+.qm-demo-option:nth-child(2) .qm-letter {background:#85daf0;color:#163447}
+.qm-demo-option:nth-child(3) .qm-letter {background:#ffab9b;color:#4e2d28}
+.qm-demo-option:nth-child(4) .qm-letter {background:#cdb8fb;color:#332156}
+.qm-demo-option:hover {border-color:#7a55c8;background:#f7f2ff;transform:translateX(3px)}
+.qm-demo-option.selected {background:#f2ecff;border-color:#6940c9;box-shadow:inset 4px 0 #6940c9}
+.qm-demo-option.selected .qm-letter {background:#5f39b9;color:white}
+.qm-demo-option>svg {color:#5431ac}
+.qm-demo-feedback {background:#244e55}
+.qm-demo-feedback>span {background:#087962}
+.qm-feature-band {background:#fff;border-color:#e5e1ed}
+.qm-feature-grid>article {position:relative}
+.qm-feature-grid>article:nth-child(1) .qm-feature-icon {background:#e5f8ed;color:#087962}
+.qm-feature-grid>article:nth-child(2) .qm-feature-icon {background:#fff0c8;color:#8e5d0d}
+.qm-feature-grid>article:nth-child(3) .qm-feature-icon {background:#eee6ff;color:#643cbd}
+.qm-feature-grid h2,.qm-creators h2 {color:#243454}
+.qm-creators {position:relative}
+.qm-creators .serif {color:#5f38b9}
+.qm-creator-cards article {border:2px solid #ece5f6;box-shadow:0 9px 0 #5540860d;transition:transform .2s}
+.qm-creator-cards article:nth-child(1) .qm-feature-icon {background:#fce9aa;color:#765310}
+.qm-creator-cards article:nth-child(2) .qm-feature-icon {background:#d5edff;color:#195b8b}
+.qm-creator-cards article:nth-child(3) .qm-feature-icon {background:#e4f7d9;color:#2a713e}
+.qm-creator-cards article:hover {transform:translateY(-3px)}
+.qm-arena-banner {background:linear-gradient(125deg,#6739c8,#473399 70%);border:none;color:#fff;box-shadow:0 18px 0 #3d277c1a,0 25px 55px #5431a333}
+.qm-arena-banner h2 {color:#fff}
+.qm-arena-banner p {color:#efe9ff}
+.qm-arena-banner .qm-eyebrow {background:#ffffff1a;border-color:#ffffff6b;color:#fff;box-shadow:none}
+.qm-arena-banner .btn {background:#ffdb70;border-color:#ffdb70;color:#35264e}
+.qm-arena-banner .btn:hover {background:#ffce51;border-color:#ffce51}
+.qm-arena-banner .text-link {color:white;text-decoration:underline}
+.qm-arena-badge {background:#fff;color:#3d3070;box-shadow:0 13px 0 #321c721f}
+.qm-arena-badge svg {color:#e4932d}
+.qm-arena-badge>span {color:#546271}
+.qm-footer {background:#fff}
+
+/* Creator space: clear choice of pathways and lively but scannable cards. */
+.dashboard {max-width:1230px}
+.page-heading h1 {color:#243454;font-weight:700}
+.creator-shortcuts {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:6px 0 26px}
+.shortcut-card {display:flex;align-items:center;gap:16px;text-align:left;min-height:124px;padding:22px 21px;border-radius:24px;border:2px solid transparent;color:#263848;transition:transform .2s,box-shadow .2s;cursor:pointer;box-shadow:0 8px 0 #29325311}
+.shortcut-card>span:nth-child(2) {flex:1;min-width:0}
+.shortcut-card strong {display:block;font-size:19px;line-height:1.2;letter-spacing:-.4px}
+.shortcut-card small {display:block;font-size:12px;line-height:1.45;margin-top:8px;color:#384e54;font-weight:500}
+.shortcut-card:hover {transform:translateY(-4px);box-shadow:0 12px 0 #29325312}
+.shortcut-icon {display:grid;place-items:center;width:52px;height:52px;border-radius:15px;flex-shrink:0}
+.shortcut-ai {background:#e9dcff;border-color:#cfb3f8}.shortcut-ai .shortcut-icon {background:#7448c8;color:#fff}
+.shortcut-import {background:#dcf4ff;border-color:#b4dff3}.shortcut-import .shortcut-icon {background:#236d9b;color:#fff}
+.shortcut-arena {background:#fff1bf;border-color:#f6dda0}.shortcut-arena .shortcut-icon {background:#ba751c;color:#fff}
+.stats>div {border:2px solid #e4e6f2;border-radius:23px;box-shadow:0 8px 0 #4047650b}
+.stats>div:nth-child(1) {background:#fff4d5;border-color:#f6de99}.stats>div:nth-child(1):before {background:#e8ab31}
+.stats>div:nth-child(2) {background:#e9f1ff;border-color:#cbdffa}.stats>div:nth-child(2):before {background:#538ccf}
+.stats>div:nth-child(3) {background:#ebf8e7;border-color:#ceebc8}.stats>div:nth-child(3):before {background:#4e9c64}
+.stats strong {color:#243454}
+.quiz-library-card,.editor-card,.table-card,.login-card,.start-card,.question-card {border:2px solid #e6e6f1;box-shadow:0 9px 0 #3344690b}
+.quiz-library-card:hover {border-color:#bda5ee;box-shadow:0 10px 0 #6744be13}
+.quiz-library-card:nth-child(4n+1) {border-top:6px solid #ffbd68}.quiz-library-card:nth-child(4n+2) {border-top:6px solid #8dddb1}.quiz-library-card:nth-child(4n+3) {border-top:6px solid #b7a0f8}.quiz-library-card:nth-child(4n) {border-top:6px solid #84cce8}
+.quiz-library-card h2,.editor-card h2 {color:#263755}
+.status:before {background:#198764}.status.closed:before {background:#bd7624}
+.empty-state {border:2px dashed #cbb6eb;background:linear-gradient(135deg,#f4eeff,#f8fff5);border-radius:24px}
+.ai-builder-anchor {scroll-margin-top:24px}
+.ai-card {background:linear-gradient(125deg,#f5eaff,#e8f9f4 72%,#fff);border:2px solid #d6c4f1}
+.ai-balance {background:#fff;border:1px solid #ddd0f3}
+.ai-tabs button[aria-selected=true],.ai-tabs button.active {background:#6940c9;color:white}
+.ai-plans article {border:2px solid #e3d9f6;box-shadow:0 7px 0 #5a429e11}
+.ai-plans article:last-child {background:#f2eaff;border-color:#c7acf7}
+.ai-preview {border:2px solid #e2d8f2}
+.question-image-editor {background:#f0f7ff;border:2px dashed #b9d5ee}
+.diagram-editor {background:#f7f0ff;border:2px solid #e3d0fa}
+.document-import {background:#fbf7ff;border-color:#d7c4f1}
+.import-preview {background:#edf9f3;border-radius:18px;padding:18px;margin-top:20px}
+.profile-avatar {background:#6141ae;color:#fff;box-shadow:0 6px 0 #53358126}
+.table-card th {background:#f0eaff;color:#544091}
+
+/* Learner and Arena screens: four distinguishable answers, distinct states. */
+.student-shell {max-width:830px}
+.start-card {background:linear-gradient(140deg,#fff,#fff8e9);border-top:7px solid #ffc762}
+.quiz-facts span {font-weight:700}
+.progress {height:11px;background:#e9e2f5;border-radius:99px}
+.progress span {background:linear-gradient(90deg,#6644c7,#49b6b2);border-radius:99px}
+.question-card {border-top:7px solid #7352c9}
+.question-card h1,.arena-question {color:#243454;font-weight:700}
+.answer-list {gap:13px}
+.answer,.arena-option {border:2px solid transparent;color:#23394b;font-weight:600;border-radius:17px;transition:transform .16s,box-shadow .16s,border-color .16s}
+.answer:nth-child(1),.arena-option:nth-child(1) {background:#fff0bd;border-color:#f5d88e}
+.answer:nth-child(2),.arena-option:nth-child(2) {background:#dff3ff;border-color:#b7ddf3}
+.answer:nth-child(3),.arena-option:nth-child(3) {background:#ffe8e1;border-color:#fac8bb}
+.answer:nth-child(4),.arena-option:nth-child(4) {background:#ede6ff;border-color:#d7c8fa}
+.answer .letter,.arena-option .letter {border:2px solid #24395455;border-radius:11px;background:#fff9;font-weight:800;color:#243954}
+.answer:not(:disabled):hover,.arena-option:not(:disabled):hover {transform:translateY(-3px);box-shadow:0 7px 0 #26375419;border-color:#6c48c8}
+.answer.selected,.arena-option.selected {border:3px solid #4d319d;box-shadow:inset 5px 0 #4d319d,0 0 0 2px #fff}
+.answer.selected .letter,.arena-option.selected .letter {background:#4d319d;color:#fff;border-color:#4d319d}
+.arena-option.correct,.arena-option.correct.selected {background:#d8f5dc;border:3px solid #16734d;box-shadow:inset 5px 0 #16734d}
+.arena-option.incorrect,.arena-option.incorrect.selected {background:#ffe1d9;border:3px solid #a64035;box-shadow:inset 5px 0 #a64035}
+.question-dots button {border:2px solid #d0c6ed;border-radius:50%;background:#fff;font-weight:800}
+.question-dots button.answered {background:#d8f3e4;border-color:#72ad8c;color:#183f2b}
+.question-dots button.current {background:#603db7;border-color:#603db7;color:#fff}
+.result-hero {background:linear-gradient(140deg,#e8f8ed,#eae5ff);border:2px solid #c5c7ed;box-shadow:0 9px 0 #795db017}
+.score-ring {background:#fff;border:8px solid #7a51d1;color:#5031aa}
+.review-card.good {border-left:6px solid #238054}.review-card.learn {border-left:6px solid #c88327}
+.explanation {background:#eaf7ef;color:#205841}.review-card.learn .explanation {background:#fff1d7;color:#684919}
+.arena-home .arena-hero {gap:46px}
+.arena-hero h1 {color:#27354f}.arena-hero .serif {color:#6940c9}
+.arena-join-card {background:#efe6ff;border:2px solid #d6befa;box-shadow:0 10px 0 #b895ef23}
+.arena-join-card .feature-icon {background:#fff;color:#5e32ac}
+.arena-code-block {background:#fff0c8;border:2px solid #efce73;box-shadow:0 7px 0 #ae87251c}
+.arena-code-block>strong {color:#3b2d61}
+.arena-host-controls {background:#f1ebff;border:2px solid #d3bff4}
+.arena-stage {border:2px solid #e5e0f3;box-shadow:0 9px 0 #36436611}
+.arena-stage-icon {background:#fff0c1;color:#966117}
+.arena-leaderboard {background:#fff;border:2px solid #dfd7f2;box-shadow:0 9px 0 #533d8611}
+.arena-leaderboard h2 {color:#433383}
+.arena-leaderboard li.is-me {background:#e7f4ed}
+.arena-rank.top {background:#ffdc70;color:#514016}
+.arena-timer {border:3px solid #7753c8;background:#eee5ff;color:#5030a4}
+.arena-timer.urgent {background:#ffe6da;border-color:#be543e;color:#9d3b2a}
+.arena-round-status {background:#f1edfc;color:#423971}
+.arena-winners>div {background:#fff0bd;border:2px solid #e6c972;box-shadow:0 7px 0 #986b2a1c}
+.arena-screen {background:radial-gradient(circle at 80% 10%,#deceff,transparent 32%),#f5f1ff}
+.arena-screen .arena-stage,.arena-screen .arena-leaderboard {box-shadow:0 15px 0 #41307720}
+.arena-screen .arena-code-block {background:#ffe38e}
+.arena-screen .arena-option {font-weight:800}
+.minty-launcher {background:#603db7;border-color:#603db7;box-shadow:0 6px 0 #30197220,0 12px 28px #38198d33}
+.minty-avatar {background:#ffdc70;color:#453066}
+.minty-header {background:#f0e9ff}
+.minty-form button {background:#603db7}
+
+@media(max-width:950px) {.creator-shortcuts {grid-template-columns:1fr 1fr}.creator-shortcuts .shortcut-arena {grid-column:1/-1}}
+@media(max-width:750px) {
+  .qm-nav {padding:19px 24px}
+  .qm-hero {min-height:0}
+  .qm-hero:before {display:none}
+  .qm-demo-card {transform:none}
+  .creator-shortcuts {grid-template-columns:1fr;gap:13px}
+  .creator-shortcuts .shortcut-arena {grid-column:auto}
+  .shortcut-card {min-height:94px;padding:17px}
+  .arena-stage-grid {gap:18px}
+}
+@media(max-width:450px) {
+  .qm-hero h1 {letter-spacing:-2.5px}
+  .qm-hero h1 span {text-decoration-thickness:5px;text-underline-offset:5px}
+  .qm-demo-tag {right:0}
+  .answer,.arena-option {min-height:64px}
+  .shortcut-icon {width:45px;height:45px}
+  .shortcut-card strong {font-size:17px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .shortcut-card,.qm-creator-cards article,.answer,.arena-option {transition:none}
+  .shortcut-card:hover,.answer:hover,.arena-option:hover,.qm-creator-cards article:hover {transform:none}
+}
+@media print {body,.qm-home {background:white!important}.creator-shortcuts,.minty-launcher {display:none!important}.answer,.arena-option {box-shadow:none!important}}
