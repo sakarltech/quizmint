@@ -1,0 +1,11 @@
+.result-hero.quiz-result{position:relative;isolation:isolate;overflow:hidden}
+.quiz-celebration{pointer-events:none}
+.quiz-applause{display:inline-block;font-size:3rem;line-height:1.25;margin:0 0 .5rem;transform-origin:50% 80%}
+.quiz-applause.is-clapping{animation:quiz-clap .45s ease-in-out 6}
+.quiz-confetti{position:absolute;inset:0;overflow:hidden;z-index:-1}
+.quiz-confetti span{position:absolute;left:50%;top:35%;width:9px;height:14px;border-radius:2px;background:var(--colour);opacity:0;animation:quiz-burst 2.8s var(--delay) cubic-bezier(.15,.65,.35,1) both}
+.quiz-result .quiz-encouragement{font-size:1.1rem;font-weight:700;max-width:38rem;margin:1rem auto;line-height:1.6}
+.quiz-result .quiz-review-link{margin:.3rem auto 1rem;position:relative;max-width:100%;white-space:normal}
+@keyframes quiz-clap{0%,100%{transform:rotate(-8deg) scale(1)}50%{transform:rotate(8deg) scale(1.12)}}
+@keyframes quiz-burst{0%{opacity:0;transform:translate(0,0) rotate(0)}10%{opacity:.9}65%{opacity:.75}100%{opacity:0;transform:translate(var(--x),calc(var(--y) + 180px)) rotate(var(--spin))}}
+@media(prefers-reduced-motion:reduce){.quiz-applause.is-clapping,.quiz-confetti span{animation:none}.quiz-confetti{display:none}}
