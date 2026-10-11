@@ -1,8 +1,11 @@
+export const monthlyAmount=999;
+export const annualAmount=Math.round(monthlyAmount*12*0.8);
 export const plans = [
- {id:'starter',name:'50 question credits',questions:50,amount:299,mode:'payment'},
- {id:'plus',name:'200 question credits',questions:200,amount:799,mode:'payment'},
- {id:'bulk',name:'500 question credits',questions:500,amount:1499,mode:'payment'},
- {id:'monthly',name:'Unlimited monthly',questions:0,amount:1099,mode:'subscription'},
+ {id:'starter',name:'50 question credits',questions:50,amount:299,mode:'payment',interval:null},
+ {id:'plus',name:'200 question credits',questions:200,amount:799,mode:'payment',interval:null},
+ {id:'bulk',name:'500 question credits',questions:500,amount:1499,mode:'payment',interval:null},
+ {id:'monthly',name:'Unlimited monthly',questions:0,amount:monthlyAmount,mode:'subscription',interval:'month'},
+ {id:'annual',name:'Unlimited annual',questions:0,amount:annualAmount,mode:'subscription',interval:'year'},
 ] as const;
 export function allocation(free:number,credits:number,count:number,unlimited:boolean){if(!Number.isInteger(count)||count<1||count>50)throw Error('Generate 1–50 questions at a time.');if(unlimited)return {free:0,paid:0};if(free+credits<count)throw Error('You need more question credits. Choose a credit pack or monthly plan.');return {free:Math.min(free,count),paid:Math.max(0,count-free)};}
 export async function verifyStripe(raw:string,header:string,secret:string,now=Date.now()){

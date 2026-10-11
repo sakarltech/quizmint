@@ -10,7 +10,7 @@ export async function POST(req:Request){if(!settings().STRIPE_WEBHOOK_SECRET||!s
  await db().batch([db().prepare('UPDATE ai_wallets SET credits=credits+?,customer=COALESCE(?,customer) WHERE user_id=? AND NOT EXISTS(SELECT 1 FROM ai_payments WHERE id=?)').bind(p.questions,o.customer,uid,o.id),db().prepare('INSERT INTO ai_payments(id,user_id,created) VALUES(?,?,?) ON CONFLICT DO NOTHING').bind(o.id,uid,Date.now())]);
  }else if(event.type==='invoice.paid'){
  const sid=o.subscription||o.parent?.subscription_details?.subscription; if(sid){const s=await stripe('subscriptions/'+encodeURIComponent(sid));const uid=s.metadata?.user_id;const ends=s.items?.data?.map((i:any)=>i.current_period_end)||[];const end=(s.current_period_end||Math.max(0,...ends))*1000;
- if(uid&&s.metadata?.plan==='monthly'&&['active','trialing'].includes(s.status)&&end>Date.now()){await wallet(uid);await db().prepare('UPDATE ai_wallets SET subscription_end=MAX(subscription_end,?),customer=? WHERE user_id=?').bind(end,s.customer,uid).run();}}
+ if(uid&&plans.some(p=>p.id===s.metadata?.plan&&p.mode==='subscription')&&['active','trialing'].includes(s.status)&&end>Date.now()){await wallet(uid);await db().prepare('UPDATE ai_wallets SET subscription_end=MAX(subscription_end,?),customer=? WHERE user_id=?').bind(end,s.customer,uid).run();}}
  }else if(event.type==='customer.subscription.deleted'){
  const uid=o.metadata?.user_id;if(uid)await db().prepare('UPDATE ai_wallets SET subscription_end=0 WHERE user_id=? AND customer=?').bind(uid,o.customer).run();
  }
