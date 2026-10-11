@@ -1,0 +1,48 @@
+#quizmint-internal-review{font-family:'Atkinson Hyperlegible Next',Arial,sans-serif;color:#172d25;font-size:16px;line-height:1.6;text-align:left;color-scheme:light}
+#quizmint-internal-review .qm-review-controls{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px;background:#eaf7f2;border-bottom:1px solid #c7dfd1;color:#25483b}
+#quizmint-internal-review .qm-review-controls label{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-weight:700}
+#quizmint-internal-review .qm-review-controls select{font:inherit;max-width:100%;padding:10px 12px;border:1px solid #a9cbbc;border-radius:10px;background:#fff;color:#173d32}
+#quizmint-internal-review .qm-review-controls>span{font-size:13px}
+#quizmint-internal-review .qm-preview{display:grid;grid-template-columns:194px minmax(0,1fr);grid-template-areas:'head head' 'side main';position:relative;min-height:0;overflow:hidden}
+#quizmint-internal-review .qm-preview .header{grid-area:head;position:static;padding:16px 22px;height:auto;min-height:76px}
+#quizmint-internal-review .qm-preview .qm-sidebar{grid-area:side;position:static;width:auto;min-height:610px;top:auto;bottom:auto;left:auto;padding:24px 12px;display:flex}
+#quizmint-internal-review .qm-preview .qm-sidebar nav a,#quizmint-internal-review .qm-preview-help{font-size:14px}
+#quizmint-internal-review .qm-preview-help{display:flex;gap:10px;align-items:center;border:0;background:transparent;font-weight:700;padding:10px 12px;color:#4b6358;text-align:left;min-height:48px;border-radius:12px}
+#quizmint-internal-review .qm-preview .qm-preview-main{grid-area:main;min-height:610px;margin:0;max-width:none;width:auto;padding:32px 25px 90px}
+#quizmint-internal-review .qm-preview .page-heading h1{font-size:36px}
+#quizmint-internal-review .qm-preview .page-heading{flex-direction:column;align-items:stretch;gap:18px}
+#quizmint-internal-review .qm-preview .page-heading>.btn{align-self:flex-start}
+#quizmint-internal-review .qm-preview .creator-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+#quizmint-internal-review .qm-preview .shortcut-card{min-height:155px;padding:20px}
+#quizmint-internal-review .qm-preview .stats{gap:12px;grid-template-columns:repeat(3,minmax(0,1fr))}
+#quizmint-internal-review .qm-preview .stats>div{padding:18px}
+#quizmint-internal-review .qm-preview .stats small{font-size:12px}
+#quizmint-internal-review .qm-preview .quiz-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#quizmint-internal-review .qm-preview .quiz-library-card{padding:22px}
+#quizmint-internal-review .qm-preview .ai-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+#quizmint-internal-review .qm-preview .ai-options label:last-child{grid-column:1/-1}
+#quizmint-internal-review .qm-preview .ai-plans{grid-template-columns:1fr}
+#quizmint-internal-review [hidden]{display:none!important}
+#quizmint-internal-review .qm-preview .arena-stage-grid{grid-template-columns:1fr}
+#quizmint-internal-review .qm-preview .arena-live-strip{margin-bottom:24px}
+#quizmint-internal-review .qm-preview .arena-stage{padding:30px}
+#quizmint-internal-review .qm-review-room-code{margin:24px auto;max-width:340px}
+#quizmint-internal-review .qm-preview .arena-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+#quizmint-internal-review .qm-review-public{grid-template-columns:1fr;grid-template-areas:'head' 'main';background:linear-gradient(145deg,#eaf7f2,#fff2e9)}
+#quizmint-internal-review .qm-review-public .qm-sidebar{display:none}
+#quizmint-internal-review .qm-review-public .qm-preview-main{max-width:730px;width:100%;justify-self:center;padding-top:35px}
+#quizmint-internal-review .qm-review-public .start-card{max-width:560px;margin:auto}
+#quizmint-internal-review .qm-preview .qm-editor-tools{margin:22px 0}
+#quizmint-internal-review .qm-preview-upload{position:relative;overflow:hidden}
+#quizmint-internal-review .qm-preview-upload input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
+#quizmint-internal-review .qm-preview-launcher{position:absolute;right:20px;bottom:20px;z-index:10}
+#quizmint-internal-review .qm-preview-chat{position:absolute;right:20px;bottom:85px;width:min(370px,calc(100% - 32px));height:480px;display:flex;flex-direction:column;border-radius:22px;overflow:hidden;background:#fff;box-shadow:0 20px 60px #173d3238;border:1px solid #cbd9d1;z-index:12}
+#quizmint-internal-review .qm-preview-chat .minty-header{height:auto;position:static;padding:15px;flex:none}
+#quizmint-internal-review .qm-chat-close{margin-left:auto;display:grid;place-items:center;width:44px;height:44px;flex:none;border:0;border-radius:50%;background:#fff;color:#173d32}
+#quizmint-internal-review .qm-chat-messages{padding:16px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px;min-height:0}
+#quizmint-internal-review .qm-preview-chat .minty-form{flex:none;margin:0;padding:12px}
+#quizmint-internal-review .qm-preview-chat .minty-footer{flex:none;padding:10px 14px;margin:0;max-width:none;font-size:12px}
+#quizmint-internal-review .qm-menu-review{display:none}
+#quizmint-internal-review .qm-preview .profile-avatar{margin-bottom:24px}
+#quizmint-internal-review .qm-preview>svg,#quizmint-internal-review i{flex:none}
+@media(max-width:700px){#quizmint-internal-review .qm-preview{grid-template-columns:1fr;grid-template-areas:'head' 'main'}#quizmint-internal-review .qm-preview .qm-sidebar{display:none;min-height:0}#quizmint-internal-review .qm-preview.qm-review-menu-open{grid-template-areas:'head' 'side' 'main'}#quizmint-internal-review .qm-preview.qm-review-menu-open .qm-sidebar{display:flex;border-right:0;border-bottom:1px solid #dfe7e2}#quizmint-internal-review .qm-preview .qm-sidebar nav{display:grid;grid-template-columns:1fr 1fr}#quizmint-internal-review .qm-preview .qm-studio-note,#quizmint-internal-review .qm-preview .qm-sidebar-legal{display:none}#quizmint-internal-review .qm-menu-review{display:grid;place-items:center}#quizmint-internal-review .qm-preview .qm-preview-main{padding:26px 16px 90px}#quizmint-internal-review .qm-preview .quiz-grid,#quizmint-internal-review .qm-preview .stats{grid-template-columns:1fr}#quizmint-internal-review .qm-preview .stats>div{display:grid;grid-template-columns:1fr auto}#quizmint-internal-review .qm-preview .stats strong{grid-row:1/3;grid-column:2}#quizmint-internal-review .qm-preview .ai-options{grid-template-columns:1fr}#quizmint-internal-review .qm-preview .ai-options label:last-child{grid-column:auto}#quizmint-internal-review .qm-review-controls{padding:13px 16px}#quizmint-internal-review .qm-review-controls label{gap:6px}#quizmint-internal-review .qm-preview .two-fields{grid-template-columns:1fr}#quizmint-internal-review .qm-preview .page-heading h1{font-size:32px}#quizmint-internal-review .qm-preview .arena-options{grid-template-columns:1fr}}
