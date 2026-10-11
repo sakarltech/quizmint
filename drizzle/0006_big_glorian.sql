@@ -1,0 +1,1 @@
+ALTER TABLE `ai_wallets` ADD `free_period_start` integer DEFAULT 0 NOT NULL;

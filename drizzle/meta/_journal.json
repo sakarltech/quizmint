@@ -43,6 +43,13 @@
       "when": 1791653160465,
       "tag": "0005_arena_qa_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791754603026,
+      "tag": "0006_big_glorian",
+      "breakpoints": true
     }
   ]
 }
