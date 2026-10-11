@@ -1,6 +1,6 @@
 import {body,db,response,sameOrigin} from '../../../../lib/server';
 import {digest,throttle} from '../../../../lib/accounts';
-import {ARENA_LIMIT,arenaOwner,arenaState,nickname,participant,room,transition} from '../../../../lib/arena';
+import {invalidateArena,ARENA_LIMIT,arenaOwner,arenaState,nickname,participant,room,transition} from '../../../../lib/arena';
 type Context={params:Promise<{code:string}>};
 export const dynamic='force-dynamic';
 export async function GET(req:Request,{params}:Context){const {code}=await params;const r=await room(code);if(!r)return response({error:'Room not found or expired.'},404);
@@ -8,8 +8,8 @@ export async function GET(req:Request,{params}:Context){const {code}=await param
  const player=await participant(req,code);if(req.headers.has('x-arena-token')&&!player)return response({error:'Your entry is unavailable. Rejoin the room.'},401);return response(await arenaState(r,player,host));}
 export async function PATCH(req:Request,{params}:Context){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const {code}=await params;const r=await room(code);if(!r)return response({error:'Room not found or expired.'},404);const owner=await arenaOwner(req);if(!owner||owner.id!==r.owner_id)return response({error:'Only the organiser can control this room.'},403);
  try{const x=await body(req);if(x.version!==r.version)return response({error:'Room changed. Refresh before trying again.'},409);
- if(x.action==='remove'){if(r.status!=='lobby'||typeof x.playerId!=='string')throw Error('Players can only be removed in the lobby.');await db().prepare("DELETE FROM arena_players WHERE room_code=? AND id=? AND EXISTS(SELECT 1 FROM arena_rooms WHERE code=? AND status='lobby' AND version=?)").bind(code,x.playerId,code,r.version).run();return response({ok:true});}
- const next=transition(r,x.action);const changed=await db().prepare('UPDATE arena_rooms SET status=?,question_index=?,deadline=?,remaining=?,version=version+1 WHERE code=? AND version=?').bind(next.status,next.index,next.deadline,next.remaining,code,r.version).run();if(!((changed as any).meta?.changes||(changed as any).changes))return response({error:'Room changed. Refresh before trying again.'},409);return response({ok:true});
+ if(x.action==='remove'){if(r.status!=='lobby'||typeof x.playerId!=='string')throw Error('Players can only be removed in the lobby.');await db().prepare("DELETE FROM arena_players WHERE room_code=? AND id=? AND EXISTS(SELECT 1 FROM arena_rooms WHERE code=? AND status='lobby' AND version=?)").bind(code,x.playerId,code,r.version).run();invalidateArena(code);return response({ok:true});}
+ const next=transition(r,x.action);const changed=await db().prepare('UPDATE arena_rooms SET status=?,question_index=?,deadline=?,remaining=?,version=version+1 WHERE code=? AND version=?').bind(next.status,next.index,next.deadline,next.remaining,code,r.version).run();if(!((changed as any).meta?.changes||(changed as any).changes))return response({error:'Room changed. Refresh before trying again.'},409);invalidateArena(code);return response({ok:true});
  }catch(e){return response({error:e instanceof Error?e.message:'Unable to control room.'},400);}}
 export async function POST(req:Request,{params}:Context){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const {code}=await params;const r=await room(code);if(!r)return response({error:'Room not found or expired.'},404);
  try{const x=await body(req);
@@ -19,7 +19,7 @@ export async function POST(req:Request,{params}:Context){if(!sameOrigin(req))ret
   const name=nickname(x.name);if(typeof x.token!=='string'||!/^[a-f0-9]{64}$/.test(x.token))throw Error('Unable to register this device. Please retry.');const hash=await digest(x.token);
   const previous=await db().prepare('SELECT id,name FROM arena_players WHERE room_code=? AND token_hash=?').bind(code,hash).first<any>();if(previous)return response({player:previous});
   const id=crypto.randomUUID();const saved=await db().prepare("INSERT OR IGNORE INTO arena_players(id,room_code,token_hash,name,name_key,joined) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM arena_rooms WHERE code=? AND status='lobby' AND expires>?) AND (SELECT COUNT(*) FROM arena_players WHERE room_code=?)<?").bind(id,code,hash,name,name.toLowerCase(),Date.now(),code,Date.now(),code,ARENA_LIMIT).run();
-  if(!((saved as any).meta?.changes||(saved as any).changes))return response({error:'That name is taken, the room is full, or the competition has started. Choose another name or check with the host.'},409);return response({player:{id,name}},201);
+  if(!((saved as any).meta?.changes||(saved as any).changes))return response({error:'That name is taken, the room is full, or the competition has started. Choose another name or check with the host.'},409);invalidateArena(code);return response({player:{id,name}},201);
  }
  if(x.action==='answer'){
   const player=await participant(req,code);if(!player)return response({error:'Rejoin the room before answering.'},401);
@@ -32,4 +32,4 @@ export async function POST(req:Request,{params}:Context){if(!sameOrigin(req))ret
  }
  throw Error('Unknown competition action.');
  }catch(e){return response({error:e instanceof Error?e.message:'Unable to update competition.'},400);}}
-export async function DELETE(req:Request,{params}:Context){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const {code}=await params;const r=await db().prepare('SELECT owner_id FROM arena_rooms WHERE code=?').bind(code).first<{owner_id:string}>();const owner=await arenaOwner(req);if(!owner||owner.id!==r?.owner_id)return response({error:'Only the organiser can delete this room.'},403);await db().batch([db().prepare('DELETE FROM arena_answers WHERE room_code=?').bind(code),db().prepare('DELETE FROM arena_players WHERE room_code=?').bind(code),db().prepare('DELETE FROM arena_rooms WHERE code=?').bind(code)]);return response({ok:true});}
+export async function DELETE(req:Request,{params}:Context){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const {code}=await params;const r=await db().prepare('SELECT owner_id FROM arena_rooms WHERE code=?').bind(code).first<{owner_id:string}>();const owner=await arenaOwner(req);if(!owner||owner.id!==r?.owner_id)return response({error:'Only the organiser can delete this room.'},403);await db().batch([db().prepare('DELETE FROM arena_answers WHERE room_code=?').bind(code),db().prepare('DELETE FROM arena_players WHERE room_code=?').bind(code),db().prepare('DELETE FROM arena_rooms WHERE code=?').bind(code)]);invalidateArena(code);return response({ok:true});}

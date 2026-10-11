@@ -4,6 +4,8 @@ import type {Question} from './quiz';
 export type ArenaStatus='lobby'|'question'|'paused'|'reveal'|'finished';
 export type ArenaRoom={code:string;owner_id:string;title:string;quiz_id:string;questions:string;mode:'individual'|'team';seconds:number;status:ArenaStatus;question_index:number;deadline:number;remaining:number;version:number;created:number;expires:number};
 export const ARENA_LIMIT=100;
+const leaderboardCache=new Map<string,{expires:number;value:Promise<any[]>}>();
+export function invalidateArena(code:string){for(const key of leaderboardCache.keys())if(key.startsWith(code+':'))leaderboardCache.delete(key);}
 export async function arenaOwner(req:Request){
  if(new URL(req.url).searchParams.get('admin')==='1')return await admin(req)?{id:'admin:'+req.headers.get('oai-authenticated-user-id'),isAdmin:true}:null;
  const u=await creator(req.headers.get('cookie'));return u?{id:u.id,isAdmin:false}:null;
@@ -29,8 +31,10 @@ export function transition(r:ArenaRoom,action:string,now=Date.now()){
 export async function arenaState(r:ArenaRoom,player:{id:string;name:string}|null,isHost=false){
  const questions=JSON.parse(r.questions) as Question[];
  const cutoff=r.status==='reveal'||r.status==='finished'?r.question_index:r.question_index-1;
- const rows=await db().prepare('SELECT p.id,p.name,COALESCE(SUM(CASE WHEN a.question_index<=? THEN a.points ELSE 0 END),0) AS score,COALESCE(SUM(CASE WHEN a.question_index<=? AND a.points>0 THEN 1 ELSE 0 END),0) AS correct FROM arena_players p LEFT JOIN arena_answers a ON a.player_id=p.id AND a.room_code=p.room_code WHERE p.room_code=? GROUP BY p.id ORDER BY score DESC,p.joined ASC,p.id ASC').bind(cutoff,cutoff,r.code).all<any>();
- const leaders=rows.results.map((p:any,i:number,all:any[])=>({...p,rank:i===0?1:all.findIndex(x=>x.score===p.score)+1}));
+ const cacheKey=r.code+':'+r.version+':'+cutoff;const cached=leaderboardCache.get(cacheKey);let leaders:any[];
+ if(cached&&cached.expires>Date.now())leaders=await cached.value;
+ else{const value=(async()=>{const rows=await db().prepare('SELECT p.id,p.name,COALESCE(SUM(CASE WHEN a.question_index<=? THEN a.points ELSE 0 END),0) AS score,COALESCE(SUM(CASE WHEN a.question_index<=? AND a.points>0 THEN 1 ELSE 0 END),0) AS correct FROM arena_players p LEFT JOIN arena_answers a ON a.player_id=p.id AND a.room_code=p.room_code WHERE p.room_code=? GROUP BY p.id ORDER BY score DESC,p.joined ASC,p.id ASC').bind(cutoff,cutoff,r.code).all<any>();return rows.results.map((p:any,i:number,all:any[])=>({...p,rank:i===0?1:all.findIndex(x=>x.score===p.score)+1}));})();if(leaderboardCache.size>=200)leaderboardCache.delete(leaderboardCache.keys().next().value!);leaderboardCache.set(cacheKey,{expires:Date.now()+2000,value});try{leaders=await value;}catch(e){leaderboardCache.delete(cacheKey);throw e;}}
+
  const answered=await db().prepare('SELECT COUNT(*) AS n FROM arena_answers WHERE room_code=? AND question_index=?').bind(r.code,r.question_index).first<{n:number}>();
  const mine=player?await db().prepare('SELECT selected FROM arena_answers WHERE room_code=? AND player_id=? AND question_index=?').bind(r.code,player.id,r.question_index).first<{selected:number}>():null;
  const q=questions[r.question_index];const revealed=r.status==='reveal'||r.status==='finished';

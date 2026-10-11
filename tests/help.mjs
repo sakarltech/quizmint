@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {readFileSync,readdirSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('wrangler/package.json'))('esbuild');
-const sql=new DatabaseSync(':memory:');sql.exec('CREATE TABLE auth_limits(key TEXT PRIMARY KEY,window INTEGER,count INTEGER)');
+const sql=new DatabaseSync(':memory:');sql.exec(readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort().map(f=>readFileSync('drizzle/'+f,'utf8')).join('\n').replaceAll('--> statement-breakpoint',''));
 class Statement{constructor(query){this.query=query;this.values=[]}bind(...v){this.values=v;return this}async run(){return sql.prepare(this.query).run(...this.values)}async first(){return sql.prepare(this.query).get(...this.values)}}
-globalThis.__helpEnv={DB:{prepare:q=>new Statement(q)}};
+globalThis.__helpEnv={DB:{prepare:q=>new Statement(q),batch:async qs=>{for(const q of qs)await q.run();}}};
 const plugin={name:'help-env',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__helpEnv',loader:'js'}))}};
 await build({entryPoints:['app/api/help/route.ts'],outfile:'.sites-runtime/test-help.mjs',bundle:true,platform:'node',format:'esm',plugins:[plugin]});
 const api=await import('../.sites-runtime/test-help.mjs');
