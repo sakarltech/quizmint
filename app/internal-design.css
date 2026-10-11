@@ -44,4 +44,15 @@
 
 .qm-interior .minty-panel{z-index:60}.qm-interior .minty-launcher{z-index:59}
 
+/* A consistent home destination on every internal route. */
+.qm-home-return{position:sticky;top:0;z-index:41;height:52px;display:flex;align-items:center;padding:4px 32px;background:#fff;border-bottom:1px solid #e2ebe6}
+.qm-home-return a{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px;color:#4b6358;font-size:14px;font-weight:700;border-radius:8px}
+.qm-home-return a:hover{color:#116b55;background:#eaf7f2}
+.qm-home-return a svg{flex:none}
+.qm-workspace .header{top:52px}
+.qm-workspace .qm-sidebar,.qm-workspace .qm-sidebar-backdrop{top:128px}
+.qm-workspace .qm-sidebar-toggle{top:68px}
+@media(max-width:600px){.qm-home-return{padding-left:16px;padding-right:16px}.qm-workspace .qm-sidebar,.qm-workspace .qm-sidebar-backdrop{top:0;padding-top:148px}}
+@media print{.qm-home-return{display:none}.qm-workspace .header{top:0}}
+
 .qm-interior .minty-launcher:hover:not(:disabled),.qm-interior .minty-form button:hover:not(:disabled){background:#0b4e3d;border-color:#0b4e3d}
