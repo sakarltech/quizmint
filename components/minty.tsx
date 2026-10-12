@@ -9,7 +9,7 @@ const starters=['How do I create my first quiz?','What does AI cost?','How do I 
 export default function Minty(){
  const path=usePathname()||'/',[open,setOpen]=useState(false),[messages,setMessages]=useState<Message[]>([welcome]),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const launcher=useRef<HTMLButtonElement>(null),input=useRef<HTMLInputElement>(null),log=useRef<HTMLDivElement>(null),pending=useRef<AbortController|null>(null);
- const hidden=path.startsWith('/q/')||(/^\/arena\/[^/]+/.test(path)&&!path.endsWith('/host'));
+ const hidden=['/forgot-password','/reset-password'].includes(path)||path.startsWith('/q/')||(/^\/arena\/[^/]+/.test(path)&&!path.endsWith('/host'));
  useEffect(()=>{if(open&&!hidden&&!busy)input.current?.focus()},[open,hidden,busy]);
  useEffect(()=>{if(log.current)log.current.scrollTop=log.current.scrollHeight},[messages,busy,open]);
  useEffect(()=>()=>pending.current?.abort(),[]);

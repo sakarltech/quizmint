@@ -22,3 +22,5 @@ export const aiQueue=sqliteTable('ai_queue',{id:text('id').primaryKey(),userId:t
 export const publicQuizzes=sqliteTable('public_quizzes',{id:text('id').primaryKey(),ownerId:text('owner_id').notNull(),title:text('title').notNull(),subject:text('subject').notNull(),quiz:text('quiz').notNull(),published:integer('published').notNull().default(1),copies:integer('copies').notNull().default(0),created:integer('created').notNull()},t=>[index('public_quiz_published_created_idx').on(t.published,t.created,t.id),index('public_quiz_owner_idx').on(t.ownerId)]);
 
 export const aiBudgets=sqliteTable('ai_budgets',{month:text('month').primaryKey(),costMicro:integer('cost_micro').notNull().default(0),reservedMicro:integer('reserved_micro').notNull().default(0)});
+
+export const creatorPasswordResets=sqliteTable('creator_password_resets',{userId:text('user_id').primaryKey().references(()=>creatorUsers.id),tokenHash:text('token_hash').notNull().unique(),passwordHash:text('password_hash').notNull(),expires:integer('expires').notNull(),used:integer('used').notNull().default(0),created:integer('created').notNull()},t=>[index('password_reset_expires_idx').on(t.expires)]);

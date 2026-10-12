@@ -1,3 +1,4 @@
+import {withRuntimeContext} from "../lib/runtime-context";
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
@@ -23,6 +24,6 @@ export default {
         },
       };
     }
-    return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
+    return withRuntimeContext(ctx, () => runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx)));
   },
 };
