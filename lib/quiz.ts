@@ -9,7 +9,9 @@ export function validateQuiz(input:any) {
   let image:Question['image'];if(q.image!=null){if(typeof q.image!=='object'||typeof q.image.id!=='string'||!/^[a-f0-9]{32}$/.test(q.image.id)||typeof q.image.alt!=='string'||!q.image.alt.trim()||q.image.alt.length>500||(q.image.caption!=null&&(typeof q.image.caption!=='string'||q.image.caption.length>300)))throw Error('Each image needs a valid upload and a description (up to 500 characters); captions can be up to 300 characters.');image={id:q.image.id,alt:q.image.alt.trim(),...(q.image.caption?.trim()?{caption:q.image.caption.trim()}:{})};}
   return {...(image?{image}:{}),...(q.diagram!=null?{diagram:validateDiagram(q.diagram)}:{}),prompt:q.prompt.trim(),options:q.options.map((o:string)=>o.trim()),correct:q.correct,explanation:q.explanation.trim()};
  });
- return {title:input.title.trim(),subject:input.subject.trim(),description:input.description.trim(),questions};
+ const timeLimitMinutes=input.timeLimitMinutes??input.time_limit_minutes??0;
+ if(!Number.isInteger(timeLimitMinutes)||timeLimitMinutes<0||timeLimitMinutes>240)throw Error('Choose untimed or a whole-number time limit of 1–240 minutes.');
+ return {title:input.title.trim(),subject:input.subject.trim(),description:input.description.trim(),questions,timeLimitMinutes};
 }
 export function grade(questions:Question[], answers:number[]) {
  if(!Array.isArray(answers)||answers.length!==questions.length||answers.some(a=>!Number.isInteger(a)||a<0||a>3)) throw new Error('Answer every question before submitting.');

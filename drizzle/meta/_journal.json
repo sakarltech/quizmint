@@ -71,6 +71,13 @@
       "when": 1791779641756,
       "tag": "0009_jittery_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791792952368,
+      "tag": "0010_easy_sway",
+      "breakpoints": true
     }
   ]
 }
