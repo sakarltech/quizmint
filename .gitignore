@@ -57,3 +57,6 @@ next-env.d.ts
 
 *.tsbuildinfo
 !.env.example
+
+# Independently versioned Namecheap mail gateway
+/mailapi/
