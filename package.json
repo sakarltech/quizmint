@@ -11,7 +11,13 @@
     "build": "node scripts/run-framework.mjs build",
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "dev:namecheap": "next dev --hostname 127.0.0.1",
+    "build:namecheap": "next build",
+    "start:namecheap": "node server.cjs",
+    "test:namecheap-startup": "node --test tests/namecheap-startup.cjs",
+    "db:check:namecheap": "node --env-file-if-exists=.env.namecheap scripts/check-namecheap-db.mjs",
+    "test:namecheap-db": "node --test tests/namecheap-db.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -39,7 +45,8 @@
     "tailwind-merge": "3.6.0",
     "unpdf": "^1.8.1",
     "vaul": "^1.1.2",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "mysql2": "^3.15.3"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",

@@ -60,3 +60,5 @@ next-env.d.ts
 
 # Independently versioned Namecheap mail gateway
 /mailapi/
+
+!.env.namecheap.example
