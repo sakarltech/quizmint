@@ -171,3 +171,33 @@ Still pending: public library/profile queries, password recovery and direct SMTP
 AI/billing/platform/Arena queries, filesystem image storage, standalone administrator
 authentication/runtime bridge, production build, staging verification and DNS cutover.
 No production startup or DNS changes until these are complete.
+
+## Stage 4c: public library and private creator profiles
+
+Library/profile routes select LibraryStore. MariaDB uses transactional copying and
+publication, native duplicate-key updates, and JSON description/question-count
+extraction. Copies compare the locked raw source snapshot before inserting and
+incrementing its count in one transaction. Revalidation can add default fields to
+legacy snapshots without spuriously rejecting copies. Publication locks the source
+quiz and verifies its owner; route consent/ownership/upload exclusions remain.
+Profiles remain keyed to the authenticated creator and never control permissions.
+
+Search explicitly lowercases title/subject and binds each token as a substring
+condition, requiring every token. This preserves case-insensitive short-word searches
+under the schema's binary collation, avoiding FULLTEXT stopword/minimum-token rules.
+It broadens the previous prefix matches to substrings and scans candidate public
+rows; the existing FULLTEXT index is not used by this path. Revisit indexing for
+large public libraries rather than silently changing collation/search semantics.
+
+`npm run test:namecheap-library-routes` covers publication consent, ownership,
+case/short searches, copies, timing, rollback, legacy snapshots, unpublishing and
+profile validation/isolation with a driver fixture. Native repository contracts are
+checked by `npm run test:namecheap-library`.
+`npm run db:test-library:namecheap` runs native MariaDB queries against randomly
+named temporary schema copies with unique keys retained and unsupported temporary
+FULLTEXT indexes omitted. It changes no permanent quiz/profile/library data.
+
+Local route checks, original API suite, original/new timing checks, quiz routes and
+TypeScript passed. Hosting SQL verification remains the next manual step.
+Still pending: recovery/direct SMTP, AI/billing/platform/Arena queries, private image
+storage, administrator authentication/runtime conversion, build/staging and DNS.
