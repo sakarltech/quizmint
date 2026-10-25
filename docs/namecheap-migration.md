@@ -146,3 +146,28 @@ supported. No permanent quiz, attempt or library records are changed.
 Timed/resumable student attempts, public library sharing/search, creator profiles,
 password recovery writes, AI/billing/platform/Arena SQL and image storage remain to
 be migrated. Do not start the production app or change DNS at this stage.
+
+## Stage 4b: timed and resumable student attempts
+
+The timed-session route now selects a QuizSessionStore. Native MariaDB operations
+create/find sessions, conditionally save revisions and finalize attempts under a
+transaction. Mutations lock the quiz before updating a session, matching quiz-delete
+lock order. Manual saves/finalization use MariaDB's millisecond database clock, while
+timeout finalization uses the already saved answers computed by the route. Finalization
+inserts results from the winning stored JSON, not a competing caller's payload.
+
+`npm run test:namecheap-timing-routes` runs the existing timing scenarios with the
+MariaDB-selection driver fixture; public-library copy checks remain in the original
+D1 test until that route is migrated. `npm run test:namecheap-timing` checks clock,
+revision, lock order and rollback contracts. Both runtime timing suites and TypeScript
+passed locally. These are not a live concurrency/load test on shared hosting.
+
+`npm run db:test-timing:namecheap` exercises the native SQL against distinct temporary
+copies of quiz/session/attempt/library tables on one private connection. It tests
+start/resume, stale saves, duplicate results, database deadline guards and closure.
+Permanent account/quiz/attempt data is unchanged; temporary copies disappear on exit.
+
+Still pending: public library/profile queries, password recovery and direct SMTP,
+AI/billing/platform/Arena queries, filesystem image storage, standalone administrator
+authentication/runtime bridge, production build, staging verification and DNS cutover.
+No production startup or DNS changes until these are complete.

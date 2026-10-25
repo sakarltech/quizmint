@@ -25,7 +25,10 @@
     "test:namecheap-account-routes": "node tests/namecheap-account-routes.mjs",
     "test:namecheap-quiz-routes": "node tests/namecheap-quiz-routes.mjs",
     "db:test-quizzes:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-quizzes.mjs",
-    "test:namecheap-quizzes": "node --test tests/namecheap-quizzes.mjs"
+    "test:namecheap-quizzes": "node --test tests/namecheap-quizzes.mjs",
+    "db:test-timing:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-quiz-sessions.mjs",
+    "test:namecheap-timing": "node --test tests/namecheap-quiz-sessions.mjs",
+    "test:namecheap-timing-routes": "node scripts/test-namecheap-timing-routes.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
