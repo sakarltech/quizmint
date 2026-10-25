@@ -61,3 +61,28 @@ not part of this helper's intended use. Never retry ambiguous payment commits.
 Run `npm run test:namecheap-db` for connection configuration and transaction lifecycle
 checks. A passing mocked test does not verify connectivity to Namecheap; the hosting
 checker is the next manual verification after code deployment.
+
+## Stage 2b: empty MariaDB schema
+
+`migrations/mariadb/0001_initial.sql` defines the 19 application tables as InnoDB,
+with UTF-8 binary collation, BIGINT counters/timestamps, bounded indexed identifiers
+and LONGTEXT quiz/document fields. SQLite FTS5 is replaced with a FULLTEXT index on
+public quiz title/subject; the library route still requires a MariaDB query rewrite.
+Existing D1 migrations remain untouched for export/import reference.
+
+`npm run db:setup:namecheap` checks that the selected database is empty without
+creating tables. `npm run db:setup:namecheap -- --apply` explicitly creates the
+application tables plus a checksum/status journal. No accounts, quizzes, credits,
+seeds or old local data are imported. A per-database advisory lock serializes setup.
+Any preexisting non-journal tables cause refusal. A matching completed journal makes
+repeat setup a no-op. Partial setup fails closed; do not blindly delete its journal
+or rerun SQL. Inspect the failure and the database first. DDL implicitly commits,
+so partial table creation cannot be transactionally rolled back.
+
+`npm run test:namecheap-schema` checks the schema against every existing D1 column,
+key/index and foreign key, and verifies preview, refusal, journaling, partial-failure,
+checksum and lock behavior. These tests alone do not prove hosting SQL compatibility.
+
+The schema is only one stage. The app must not be started until its queries, runtime,
+storage, and authentication have been converted and tested. Existing production
+imports will need a separate explicit data conversion process.
