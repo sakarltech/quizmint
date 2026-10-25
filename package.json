@@ -21,7 +21,8 @@
     "db:setup:namecheap": "node --env-file-if-exists=.env.namecheap scripts/setup-namecheap-db.mjs",
     "test:namecheap-schema": "node --test tests/namecheap-schema.mjs",
     "test:namecheap-accounts": "node --test tests/namecheap-accounts.mjs",
-    "db:test-accounts:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-accounts.mjs"
+    "db:test-accounts:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-accounts.mjs",
+    "test:namecheap-account-routes": "node tests/namecheap-account-routes.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

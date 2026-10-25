@@ -105,3 +105,22 @@ account data changes. Requires CREATE TEMPORARY TABLES permission. This check va
 SQL and sequential behavior, not simultaneous-request load or password-reset flows.
 
 `npm run test:namecheap-accounts` runs local isolated query/transaction contract tests.
+
+## Stage 3b: account route wiring
+
+Account API handlers and shared creator-session/rate-limit helpers now call the
+AccountStore interface. The existing Workers environment uses the D1 implementation;
+the planned Node environment selects the native MariaDB repository using the internal
+QUIZMINT_RUNTIME=namecheap marker. Do not set that marker in the hosted app yet:
+the Node runtime bridge and the rest of the application are still being converted.
+
+Password hashing, cookie settings, origin checks, expiry and stale-password checks
+are preserved. All features using creator() or throttle() share the selected store.
+`npm run test:namecheap-account-routes` checks the MariaDB-selection route path with
+an isolated driver fixture; hosting SQL compatibility is covered separately by the
+previous temporary-table account check. No real/local user data is uploaded.
+
+Stage 3b validation: the MariaDB-selection account route fixture, existing full API
+suite, password-reset regression suite, 19 Namecheap unit/contract checks, and
+TypeScript noEmit all passed. Full production startup/build remains pending until
+the remaining Cloudflare dependencies are converted.
