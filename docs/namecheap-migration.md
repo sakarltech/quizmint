@@ -98,8 +98,9 @@ other runtime dependencies and administrator authentication remain to be migrate
 
 `npm run db:test-accounts:namecheap` tests the queries on one dedicated database
 connection with connection-local temporary copies of creator_users, creator_sessions
-and auth_limits. They shadow the permanent tables only on that connection, are not
-seeded from real data, and disappear when the connection is destroyed. No permanent
+and auth_limits. Each copy has a distinct random test name; the check redirects
+static repository queries to those names. They contain no real data and disappear
+when the connection is destroyed. No permanent
 account data changes. Requires CREATE TEMPORARY TABLES permission. This check validates
 SQL and sequential behavior, not simultaneous-request load or password-reset flows.
 

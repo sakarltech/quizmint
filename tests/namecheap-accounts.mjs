@@ -69,3 +69,32 @@ test('rate counter failure rolls back and malformed settings do not query', asyn
   await assert.rejects(bad.repo.admit({ keyHash: 'hash', limit: 0 }), /Invalid/);
   assert.deepEqual(bad.lifecycle, []);
 });
+
+test('hosting checks create distinct temporary tables and route all account queries to them', async () => {
+  const { accountTestTables } = await import('../db/namecheap-account-test-tables.mjs');
+  const tables = accountTestTables('abcdef123456');
+  assert.equal(tables.definitions.length, 3);
+  for (const source of ['creator_users', 'creator_sessions', 'auth_limits']) {
+    assert.ok(tables.definitions.includes(`CREATE TEMPORARY TABLE \`qm_check_abcdef123456_${source}\` LIKE \`${source}\``));
+  }
+  const calls = [];
+  const f = fixture(async (sql, values) => {
+    const mapped = tables.sql(sql);
+    assert.doesNotMatch(mapped, /\b(creator_users|creator_sessions|auth_limits)\b/);
+    assert.ok(mapped.includes('qm_check_abcdef123456_'));
+    calls.push({ sql: mapped, values });
+    if (sql.includes('SELECT `window`')) return [[{ window: 0, count: 0 }]];
+    if (sql.startsWith('SELECT id FROM creator_users')) return [[{ id: 'u' }]];
+    if (sql.startsWith('SELECT')) return [[]];
+    return [{}];
+  });
+  await f.repo.findByEmail('creator_users@example.test');
+  await f.repo.createUser({ id: 'u', email: 'a@example.test', passwordHash: 'h', salt: 's', created: 'now' });
+  await f.repo.findSession('token', 0);
+  await f.repo.issueSession({ tokenHash: 'token', userId: 'u', passwordHash: 'h', salt: 's', now: 0 });
+  await f.repo.revokeSession('token');
+  await f.repo.removeExpiredSessions(0);
+  await f.repo.admit({ keyHash: 'k', limit: 3, now: 0 });
+  assert.deepEqual(calls[0].values, ['creator_users@example.test']);
+  assert.throws(() => accountTestTables('invalid-suffix'), /Invalid/);
+});
