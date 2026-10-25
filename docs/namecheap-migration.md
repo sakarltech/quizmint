@@ -235,3 +235,36 @@ Verify inbox/spam delivery before deleting the old mailapi deployment or DNS rec
 the native repository fixture and mocked SMTP. Original and native reset tests,
 Namecheap test suite and TypeScript passed locally. SMTP has not been tested with
 real credentials. No hosted app startup or DNS change yet.
+
+## Stage 6a: AI wallets, reservations and Stripe fulfilment
+
+AI wallet/job and webhook callers now select AiStore. MariaDB uses one InnoDB
+transaction with wallet-first row locks for monthly normalization, reservations,
+refunds, completed jobs and payment fulfilment. Existing reservation ids cannot
+charge again. A running lock must be recovered before another job is reserved.
+Refunds cannot exceed the free cap, refund twice, or restore last month's free
+questions into this month's allowance. Refunded/ended jobs cannot later complete.
+
+Stripe fulfilment validates the existing route's signature, plan, amount and currency,
+then records the checkout session id and grants credits in the same transaction.
+Repeated events grant once; a session id associated with another owner fails closed.
+Subscription extension uses GREATEST and cancellation remains customer-scoped.
+Plans, prices, signatures and Stripe API behavior were not changed.
+
+`npm run test:namecheap-ai` covers native repository scenarios with an isolated driver
+fixture, including parallel admission/deduplication and injected payment rollback.
+`npm run test:namecheap-billing-routes` checks real route/signature validation and
+native-store selection with mocked Stripe responses. `npm run test:namecheap-allowance`
+runs the monthly boundary/refill/refund suite through the native store fixture.
+These do not issue provider requests or process real charges.
+
+`npm run db:test-ai:namecheap` repeats wallet/payment scenarios using distinctly named
+temporary tables on a private hosting connection. It changes no permanent balances,
+jobs or payment markers and makes no Stripe/OpenAI calls. The single-connection
+hosting check validates SQL/sequential behavior, not concurrent production load.
+
+Still pending: provider cost budgets and queue controls, Arena SQL, private image
+storage, administrator authentication and Node runtime bridge, build/staging and DNS.
+Direct SMTP delivered a real test message successfully after configuring the hosting
+server hostname and publishing SPF/DKIM/DMARC through BasicDNS. Hosted application
+variables were saved by the user. Keep mailapi until final app verification.

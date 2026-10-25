@@ -36,7 +36,11 @@
     "test:namecheap-smtp": "node --test tests/namecheap-smtp.mjs",
     "test:namecheap-reset-routes": "node scripts/test-namecheap-reset-routes.mjs",
     "db:test-recovery:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-recovery.mjs",
-    "test:namecheap-recovery": "node --test tests/namecheap-password-resets.mjs"
+    "test:namecheap-recovery": "node --test tests/namecheap-password-resets.mjs",
+    "test:namecheap-ai": "node --test tests/namecheap-ai.mjs",
+    "test:namecheap-allowance": "node scripts/test-namecheap-allowance.mjs",
+    "db:test-ai:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-ai.mjs",
+    "test:namecheap-billing-routes": "node tests/namecheap-billing-routes.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
