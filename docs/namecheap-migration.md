@@ -201,3 +201,37 @@ Local route checks, original API suite, original/new timing checks, quiz routes 
 TypeScript passed. Hosting SQL verification remains the next manual step.
 Still pending: recovery/direct SMTP, AI/billing/platform/Arena queries, private image
 storage, administrator authentication/runtime conversion, build/staging and DNS.
+
+## Stage 5: recovery and direct SMTP
+
+Recovery routes now select PasswordResetStore. MariaDB locks the account before the
+reset record, checks the database clock after locks, and atomically changes the hash,
+consumes the token and revokes all creator sessions. New-link issuance replaces the
+previous token; delivery failure invalidates only that token. The original D1 path
+is retained until the standalone runtime migration is complete.
+
+Namecheap mode uses Nodemailer directly, with implicit TLS on port 465, certificate
+verification enabled, a private fixed sender, disabled file/URL reads, no SMTP debug
+logging and bounded timeouts. Mail has branded HTML and a plain-text fallback. The
+existing daily allowance uses the native account-store row-lock limiter. SMTP sends
+are not automatically retried; a deterministic Message-ID is not a delivery
+idempotency guarantee. No standalone mailapi or gateway key is needed by this path.
+
+Configure private SMTP_HOST, SMTP_PORT=465, SMTP_USER, SMTP_PASSWORD,
+SMTP_FROM_EMAIL, SMTP_FROM_NAME and trusted APP_URL (HTTPS origin) in cPanel and in
+`.env.namecheap` for CLI checks. Don't copy the example over an existing private file.
+The mailbox password belongs in private settings only. In dotenv quote passwords
+containing #; in cPanel's value field use the raw password without wrapping quotes.
+
+`npm run db:test-recovery:namecheap` checks the native recovery SQL on uniquely named
+temporary tables, including rollback of password/token writes when session revocation
+fails. It sends no email and changes no permanent application data.
+`npm run mail:check:namecheap` connects/authenticates over TLS but sends no message.
+`npm run mail:check:namecheap -- --send recipient@example.com` sends one REAL test
+email from the Node.js process. Only run the latter for an explicitly chosen recipient.
+Verify inbox/spam delivery before deleting the old mailapi deployment or DNS record.
+
+`npm run test:namecheap-reset-routes` runs the complete reset route scenarios with
+the native repository fixture and mocked SMTP. Original and native reset tests,
+Namecheap test suite and TypeScript passed locally. SMTP has not been tested with
+real credentials. No hosted app startup or DNS change yet.

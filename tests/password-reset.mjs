@@ -7,7 +7,40 @@ const sql=new DatabaseSync(':memory:');sql.exec(readdirSync('drizzle').filter(f=
 let staleLogin=false;
 class Statement{constructor(query){this.query=query;this.values=[];}bind(...v){this.values=v;return this;}async first(){const row=sql.prepare(this.query).get(...this.values)||null;if(staleLogin&&this.query==='SELECT * FROM creator_users WHERE email=?'&&this.values[0]==='stale@example.test'){sql.prepare('UPDATE creator_users SET password_hash=?,salt=? WHERE id=?').run('f'.repeat(64),'changed-during-login',row.id);staleLogin=false;}return row;}async run(){return sql.prepare(this.query).run(...this.values);}}
 globalThis.__resetEnv={DB:{prepare:q=>new Statement(q),batch:async qs=>{sql.exec('BEGIN');try{const out=qs.map(q=>sql.prepare(q.query).run(...q.values));sql.exec('COMMIT');return out;}catch(e){sql.exec('ROLLBACK');throw e;}}}};
-const plugin={name:'test-env',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__resetEnv',loader:'js'}));}};
+const namecheap=process.env.QUIZMINT_RESET_TEST_RUNTIME==='namecheap';
+let waiting=Promise.resolve();
+if(namecheap){
+ globalThis.__resetEnv.QUIZMINT_RUNTIME='namecheap';
+ globalThis.__resetEnv.DB={prepare(){throw Error('D1 must not be used.');}};
+ const execute=async(query,values=[])=>{
+  const adapted=query.replace(/ FOR UPDATE$/,'')
+   .replace(/ ON DUPLICATE KEY UPDATE `key`=VALUES\(`key`\)$/,' ON CONFLICT(`key`) DO NOTHING')
+   .replace(/ ON DUPLICATE KEY UPDATE token_hash=VALUES\(token_hash\),password_hash=VALUES\(password_hash\),expires=VALUES\(expires\),used=0,created=VALUES\(created\)$/,' ON CONFLICT(user_id) DO UPDATE SET token_hash=excluded.token_hash,password_hash=excluded.password_hash,expires=excluded.expires,used=0,created=excluded.created')
+   .replaceAll('CAST(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(3))*1000 AS UNSIGNED)',"CAST((julianday('now')-2440587.5)*86400000 AS INTEGER)");
+  const statement=sql.prepare(adapted);
+  if(query.startsWith('SELECT')){
+   const rows=statement.all(...values);
+   if(staleLogin&&query==='SELECT id,email,password_hash,salt,created FROM creator_users WHERE email=?'&&values[0]==='stale@example.test'){
+    sql.prepare('UPDATE creator_users SET password_hash=?,salt=? WHERE id=?').run('f'.repeat(64),'changed-during-login',rows[0].id);staleLogin=false;
+   }
+   return [rows];
+  }
+  try{return [statement.run(...values)];}catch(error){if(/UNIQUE constraint/.test(error.message))error.code='ER_DUP_ENTRY';throw error;}
+ };
+ globalThis.__resetPool={execute,getConnection:async()=>{
+  const previous=waiting;let release;waiting=new Promise(resolve=>{release=resolve;});await previous;
+  return {execute,beginTransaction:async()=>sql.exec('BEGIN'),commit:async()=>sql.exec('COMMIT'),rollback:async()=>sql.exec('ROLLBACK'),release:()=>release()};
+ }};
+ Object.assign(process.env,{DB_NAME:'isolated_reset_test',DB_USER:'test',DB_PASSWORD:'test-only'});
+}
+const plugin={name:'test-env',setup(b){
+ b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));
+ if(namecheap){
+  b.onResolve({filter:/^mysql2\/promise$/},()=>({path:'mysql',namespace:'test'}));
+  b.onResolve({filter:/^nodemailer$/},()=>({path:'smtp',namespace:'test'}));
+ }
+ b.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='env'?'export const env=globalThis.__resetEnv':args.path==='mysql'?'export const createPool=()=>globalThis.__resetPool':'export default {createTransport:()=>({sendMail:message=>globalThis.__resetSmtpSend(message)})}',loader:'js'}));
+}};
 await build({entryPoints:['app/api/account/route.ts','app/api/password-reset/request/route.ts','app/api/password-reset/complete/route.ts','lib/runtime-context.ts'],outbase:'.',outdir:'.sites-runtime/reset-tests',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[plugin]});
 const account=await import('../.sites-runtime/reset-tests/app/api/account/route.mjs'),requestReset=await import('../.sites-runtime/reset-tests/app/api/password-reset/request/route.mjs'),complete=await import('../.sites-runtime/reset-tests/app/api/password-reset/complete/route.mjs'),{withRuntimeContext}=await import('../.sites-runtime/reset-tests/lib/runtime-context.mjs');
 const root='https://www.quizmint.co.uk';const request=(path,data,ip='test',origin=root,cookie)=>new Request(root+path,{method:'POST',headers:{Origin:origin,'cf-connecting-ip':ip,'Content-Type':'application/json',...(cookie?{cookie}:{})},body:JSON.stringify(data)});
@@ -18,8 +51,10 @@ assert.equal((await requestReset.POST(request('/api/password-reset/request',{ema
 assert.equal((await requestReset.POST(request('/api/password-reset/request',{email},'x','https://evil.test'))).status,403);
 assert.equal((await complete.POST(request('/api/password-reset/complete',{},'x','https://evil.test'))).status,403);
 globalThis.__resetEnv.RESEND_API_KEY='test-only';globalThis.__resetEnv.EMAIL_FROM='QuizMint <no-reply@quizmint.co.uk>';
+if(namecheap)Object.assign(globalThis.__resetEnv,{APP_URL:root,SMTP_HOST:'mail.quizmint.co.uk',SMTP_PORT:'465',SMTP_USER:'hello@quizmint.co.uk',SMTP_PASSWORD:'test-only'});
 const actualFetch=globalThis.fetch;let sent=[],deliveryFailure=false;
 globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');const message=JSON.parse(options.body);sent.push(message);assert.ok(options.headers['Idempotency-Key']);return Response.json(deliveryFailure?{error:'test failure'}:{id:'mail-test'},{status:deliveryFailure?500:200});};
+if(namecheap)globalThis.__resetSmtpSend=async message=>{sent.push({...message,to:[message.to.address]});assert.ok(message.html.includes('QuizMint'));if(deliveryFailure)throw Error('Synthetic SMTP failure');return {accepted:[message.to.address],rejected:[]};};
 let tasks=[];const context={waitUntil:p=>tasks.push(p)};
 const known=await withRuntimeContext(context,()=>requestReset.POST(request('/api/password-reset/request',{email:email.toUpperCase()})));await Promise.all(tasks);tasks=[];
 const unknown=await withRuntimeContext(context,()=>requestReset.POST(request('/api/password-reset/request',{email:'missing@example.test'})));await Promise.all(tasks);tasks=[];

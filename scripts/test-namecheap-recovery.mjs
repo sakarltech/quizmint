@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { namecheapDatabase, closeNamecheapDatabase } from '../db/namecheap.mjs';
+import { accountRepository } from '../db/namecheap-accounts.mjs';
+import { passwordResetRepository } from '../db/namecheap-password-resets.mjs';
+let connection, phase='connection';
+try {
+  connection=await (await namecheapDatabase()).getConnection();
+  const sources=['creator_users','creator_sessions','creator_password_resets','auth_limits'];
+  const suffix=randomUUID().replaceAll('-','').slice(0,12);
+  const names=Object.fromEntries(sources.map(name=>[name,`qm_check_${suffix}_${name}`]));
+  phase='temporary table creation';
+  for(const name of sources)await connection.query(`CREATE TEMPORARY TABLE \`${names[name]}\` LIKE \`${name}\``);
+  const map=sql=>sql.replace(/\b(creator_users|creator_sessions|creator_password_resets|auth_limits)\b/g,name=>names[name]);
+  let failRevocation=false;
+  const execute=(sql,values)=>{
+    if(failRevocation&&sql==='DELETE FROM creator_sessions WHERE user_id=?')throw Error('Synthetic revocation failure');
+    return connection.execute(map(sql),values);
+  };
+  const pool={execute,getConnection:async()=>({execute,beginTransaction:()=>connection.beginTransaction(),commit:()=>connection.commit(),rollback:()=>connection.rollback(),release(){}})};
+  const accounts=accountRepository(pool),resets=passwordResetRepository(pool);
+  const id=randomUUID(),email=`${id}@quizmint.invalid`,now=Date.now();
+  await accounts.createUser({id,email,passwordHash:'old-hash',salt:'old-salt',created:new Date(now).toISOString()});
+  await accounts.issueSession({tokenHash:'a'.repeat(64),userId:id,passwordHash:'old-hash',salt:'old-salt',now});
+  phase='issuance and latest-link invalidation';
+  assert.equal(await resets.issue('unknown@quizmint.invalid','b'.repeat(64)),false);
+  assert.equal(await resets.issue(email,'c'.repeat(64)),true);
+  assert.equal((await resets.find('c'.repeat(64))).id,id);
+  await resets.issue(email,'d'.repeat(64));
+  assert.equal(await resets.find('c'.repeat(64)),null);
+  phase='consumption and session revocation';
+  const consume={userId:id,tokenHash:'d'.repeat(64),previousHash:'old-hash',newHash:'new-hash',salt:'new-salt'};
+  assert.equal(await resets.consume(consume),true);
+  assert.equal(await accounts.findSession('a'.repeat(64)),null);
+  assert.equal((await accounts.findByEmail(email)).password_hash,'new-hash');
+  assert.equal(await resets.consume(consume),false);
+  assert.equal(await accounts.issueSession({tokenHash:'e'.repeat(64),userId:id,passwordHash:'old-hash',salt:'old-salt'}),false);
+  phase='expiration and failed-delivery invalidation';
+  await resets.issue(email,'f'.repeat(64));
+  await execute('UPDATE creator_password_resets SET expires=1 WHERE user_id=?',[id]);
+  assert.equal(await resets.find('f'.repeat(64)),null);
+  assert.equal(await resets.consume({...consume,tokenHash:'f'.repeat(64),previousHash:'new-hash'}),false);
+  await resets.issue(email,'1'.repeat(64));await resets.invalidate('1'.repeat(64));
+  assert.equal(await resets.find('1'.repeat(64)),null);
+  phase='atomic rollback';
+  await accounts.issueSession({tokenHash:'2'.repeat(64),userId:id,passwordHash:'new-hash',salt:'new-salt'});
+  await resets.issue(email,'3'.repeat(64));
+  failRevocation=true;
+  await assert.rejects(resets.consume({...consume,tokenHash:'3'.repeat(64),previousHash:'new-hash',newHash:'must-rollback',salt:'must-rollback'}),/Synthetic/);
+  failRevocation=false;
+  assert.equal((await accounts.findByEmail(email)).password_hash,'new-hash');
+  assert.ok(await accounts.findSession('2'.repeat(64)));
+  assert.ok(await resets.find('3'.repeat(64)));
+  console.log('MariaDB recovery checks passed: latest links, single use, expiration, invalidation, stale login protection, session revocation and atomic rollback. Permanent data unchanged. No email sent.');
+} catch(error) {
+  const code=typeof error?.code==='string'&&/^[A-Z0-9_]+$/.test(error.code)?error.code:null;
+  console.error(`Recovery checks failed during ${phase}${code?` (${code})`:''}.`);process.exitCode=1;
+} finally {
+  if(connection)connection.destroy();
+  await closeNamecheapDatabase();
+}

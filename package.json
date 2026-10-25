@@ -31,7 +31,12 @@
     "test:namecheap-timing-routes": "node scripts/test-namecheap-timing-routes.mjs",
     "test:namecheap-library-routes": "node tests/namecheap-library-routes.mjs",
     "test:namecheap-library": "node --test tests/namecheap-library.mjs",
-    "db:test-library:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-library.mjs"
+    "db:test-library:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-library.mjs",
+    "mail:check:namecheap": "node --env-file-if-exists=.env.namecheap scripts/check-namecheap-smtp.mjs",
+    "test:namecheap-smtp": "node --test tests/namecheap-smtp.mjs",
+    "test:namecheap-reset-routes": "node scripts/test-namecheap-reset-routes.mjs",
+    "db:test-recovery:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-recovery.mjs",
+    "test:namecheap-recovery": "node --test tests/namecheap-password-resets.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -60,7 +65,8 @@
     "unpdf": "^1.8.1",
     "vaul": "^1.1.2",
     "zod": "^3.25.76",
-    "mysql2": "^3.15.3"
+    "mysql2": "^3.15.3",
+    "nodemailer": "^10.1.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
