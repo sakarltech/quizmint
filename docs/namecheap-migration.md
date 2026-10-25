@@ -124,3 +124,25 @@ Stage 3b validation: the MariaDB-selection account route fixture, existing full 
 suite, password-reset regression suite, 19 Namecheap unit/contract checks, and
 TypeScript noEmit all passed. Full production startup/build remains pending until
 the remaining Cloudflare dependencies are converted.
+
+## Stage 4a: saved quizzes and ordinary student results
+
+Teacher quiz CRUD, creator-owned listing/reporting and untimed student submissions
+now use QuizStore. Namecheap selects native MariaDB operations; the existing Workers
+store remains available while migration is incomplete. Ownership and answer-hiding
+checks remain in the routes. MariaDB list aggregates normalize DECIMAL results to
+JSON numbers. Quiz close/delete mutations are ownership-scoped. Deletion uses one
+transaction and a quiz row lock. Untimed submissions lock quiz availability and use
+a duplicate-key no-op that does not suppress other integrity errors.
+
+`npm run test:namecheap-quiz-routes` checks the MariaDB route selection with an
+isolated driver fixture, including hidden answers, grading, replay, ownership,
+closed quizzes and rollback of a failed deletion. It does not connect to hosting.
+`npm run db:test-quizzes:namecheap` checks native SQL on Namecheap using distinct,
+connection-local temporary tables. The public library table is copied with an
+empty SELECT rather than LIKE because temporary InnoDB FULLTEXT indexes are not
+supported. No permanent quiz, attempt or library records are changed.
+
+Timed/resumable student attempts, public library sharing/search, creator profiles,
+password recovery writes, AI/billing/platform/Arena SQL and image storage remain to
+be migrated. Do not start the production app or change DNS at this stage.
