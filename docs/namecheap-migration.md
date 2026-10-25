@@ -86,3 +86,21 @@ checksum and lock behavior. These tests alone do not prove hosting SQL compatibi
 The schema is only one stage. The app must not be started until its queries, runtime,
 storage, and authentication have been converted and tested. Existing production
 imports will need a separate explicit data conversion process.
+
+## Stage 3a: native account queries
+
+`db/namecheap-accounts.mjs` adds MariaDB-native registration, lookup, session issuance,
+expiry, revocation and rate-limit operations. Unique keys resolve registration races.
+Session issuance locks the current password state before insertion. Rate limits use
+InnoDB row locks and quoted reserved column names; SQLite ON CONFLICT is not used.
+The existing application account routes are not wired to this repository yet, since
+other runtime dependencies and administrator authentication remain to be migrated.
+
+`npm run db:test-accounts:namecheap` tests the queries on one dedicated database
+connection with connection-local temporary copies of creator_users, creator_sessions
+and auth_limits. They shadow the permanent tables only on that connection, are not
+seeded from real data, and disappear when the connection is destroyed. No permanent
+account data changes. Requires CREATE TEMPORARY TABLES permission. This check validates
+SQL and sequential behavior, not simultaneous-request load or password-reset flows.
+
+`npm run test:namecheap-accounts` runs local isolated query/transaction contract tests.
