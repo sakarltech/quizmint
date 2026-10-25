@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { platformDriverFixture } from './helpers/namecheap-platform-driver.mjs';
+const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('wrangler/package.json'))('esbuild');
+const fixture = platformDriverFixture();
+globalThis.__platformPool = fixture.pool;
+globalThis.__platformEnv = { QUIZMINT_RUNTIME: 'namecheap', QUIZ_TEACHER_EMAIL: 'admin@example.test', OPENAI_API_KEY: 'test-only', DB: { prepare() { throw Error('D1 must not be used.'); } } };
+const previous = Object.fromEntries(['DB_NAME', 'DB_USER', 'DB_PASSWORD'].map(key => [key, process.env[key]]));
+Object.assign(process.env, { DB_NAME: 'isolated_platform_test', DB_USER: 'test', DB_PASSWORD: 'test-only' });
+const originalFetch = globalThis.fetch;
+try {
+  const plugin = { name: 'platform-runtime', setup(builder) {
+    builder.onResolve({ filter: /^cloudflare:workers$/ }, () => ({ path: 'env', namespace: 'fixture' }));
+    builder.onResolve({ filter: /^mysql2\/promise$/ }, () => ({ path: 'mysql', namespace: 'fixture' }));
+    builder.onResolve({ filter: /^nodemailer$/ }, () => ({ path: 'mail', namespace: 'fixture' }));
+    builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: args.path === 'env' ? 'export const env=globalThis.__platformEnv' : args.path === 'mysql' ? 'export const createPool=()=>globalThis.__platformPool' : 'export function createTransport(){throw Error("No email may be sent.")}', loader: 'js' }));
+  } };
+  await build({ entryPoints: ['app/api/platform/route.ts', 'lib/platform-controls.ts'], outbase: '.', outdir: '.sites-runtime/namecheap-platform-routes', bundle: true, platform: 'node', format: 'esm', outExtension: { '.js': '.mjs' }, plugins: [plugin] });
+  const route = await import('../.sites-runtime/namecheap-platform-routes/app/api/platform/route.mjs');
+  const controls = await import('../.sites-runtime/namecheap-platform-routes/lib/platform-controls.mjs');
+  const root = 'https://quizmint.test', admin = { 'oai-authenticated-user-id': 'owner', 'oai-authenticated-user-email': 'admin@example.test' };
+  const request = (method, value, headers = admin, origin = root) => new Request(root + '/api/platform', { method, headers: { ...headers, Origin: origin, 'Content-Type': 'application/json' }, ...(value ? { body: JSON.stringify(value) } : {}) });
+  const save = value => route.PATCH(request('PATCH', { ...controls.defaults, ...value }));
+  assert.equal((await route.GET(request('GET', null, {}))).status, 403);
+  assert.equal((await route.PATCH(request('PATCH', controls.defaults, admin, 'https://evil.test'))).status, 403);
+  assert.equal((await save({ maxConcurrent: 0 })).status, 400);
+  assert.equal((await save({ monthlyBudgetCents: 0 })).status, 200);
+  let calls = 0;
+  globalThis.fetch = async url => { assert.equal(url, 'https://api.openai.com/v1/responses'); calls++; return Response.json({ usage: { input_tokens: 100, output_tokens: 100 }, output: [] }); };
+  const init = { method: 'POST', body: JSON.stringify({ model: 'gpt-4.1-mini', input: 'Topic', max_output_tokens: 2000 }) };
+  await assert.rejects(controls.meteredAI('quiz', 'user', 'responses', init, 1000), /budget/);
+  assert.equal(calls, 0);
+  assert.equal(await controls.aiAvailability(), false);
+  await save({ monthlyBudgetCents: 1 });
+  const burst = await Promise.allSettled(Array.from({ length: 10 }, () => controls.meteredAI('quiz', 'user', 'responses', init, 1000)));
+  assert.equal(burst.filter(result => result.status === 'fulfilled').length, 2);
+  assert.equal(calls, 2);
+  assert.equal((await controls.usageSummary()).cost, 400);
+  await save({ aiPaused: true });
+  await assert.rejects(controls.meteredAI('quiz', 'user', 'responses', init, 1000), /paused/);
+  await assert.rejects(controls.queueTicket('user', 'paused'), /paused/);
+  assert.equal(calls, 2);
+  await save({ maxConcurrent: 2 });
+  for (let i = 0; i < 5; i++) await controls.queueTicket('user-' + i, 'ticket-' + i);
+  assert.equal((await controls.queueTicket('user-2', 'ticket-2')).ready, false);
+  await controls.releaseTicket('user-0', 'ticket-0');
+  assert.equal((await controls.queueTicket('user-2', 'ticket-2', true)).status, 'running');
+  // Provider failures retain the conservative estimate; only fetch is mocked.
+  globalThis.fetch = async () => { calls++; throw Error('Synthetic provider disconnect'); };
+  await assert.rejects(controls.meteredAI('minty', null, 'responses', init, 1000), /disconnect/);
+  const summary = await controls.usageSummary();
+  assert.equal(summary.failures, 1); assert.equal(summary.reserved, 0);
+  const health = await (await route.GET(request('GET'))).json();
+  assert.equal(health.storageLimitGB, null, 'Do not reuse the D1 storage quota on Namecheap');
+  assert.equal(health.features.length, 2);
+  assert.equal(health.daily[0].day, new Date().toISOString().slice(0, 10));
+  assert.equal(health.errors.length, 1);
+  assert.equal(typeof health.usage.cost, 'number');
+  console.log('Namecheap platform route checks passed: admin/origin guards, controls, budget admission, pause, provider failures, queue and health reporting. No D1 or live provider calls.');
+} finally {
+  globalThis.fetch = originalFetch;
+  for (const [key, value] of Object.entries(previous)) value === undefined ? delete process.env[key] : process.env[key] = value;
+  fixture.close();
+}

@@ -268,3 +268,41 @@ storage, administrator authentication and Node runtime bridge, build/staging and
 Direct SMTP delivered a real test message successfully after configuring the hosting
 server hostname and publishing SPF/DKIM/DMARC through BasicDNS. Hosted application
 variables were saved by the user. Keep mailapi until final app verification.
+
+## Stage 6b: Platform AI budgets and queue
+
+Platform controls, cost reservations/settlement, AI availability, queue tickets and
+health reporting now select a native MariaDB repository in Namecheap mode. Budget
+and queue operations each use a dedicated row in platform_settings as an InnoDB
+transaction mutex across Node processes. No provider request runs inside a database
+transaction. Reservations admit calls only within the configured remaining budget;
+settlements update the ledger and monthly counters atomically and only once.
+Interrupted calls retain their estimates, including expired reservations from earlier
+months. A late response cannot double-charge an expired reservation. These estimates
+remain application controls rather than an exact invoice or provider-wide limit.
+
+Queue transactions enforce one active ticket per creator, at most 1,000 waiting
+tickets, the configured ready/running capacity, FIFO promotion and owner-scoped
+release. Queued tickets renew while polled; ready and running leases have bounded
+expiry. The native health dashboard uses UTC daily aggregation and numeric MariaDB
+aggregates. Database allocation is estimated from information_schema; Namecheap's
+account quota is not assumed to equal the old 10 GB D1 limit. Check cPanel for actual
+hosting capacity.
+
+`npm run test:namecheap-platform` checks budget/queue scenarios, rollback and parallel
+requests with a serialized isolated driver fixture. `npm run test:namecheap-platform-routes`
+checks actual native route selection, admission before provider traffic, mocked
+provider failures, pause, queue, admin/origin guards and health reporting without D1.
+The current admin guard is still the legacy Sites guard; standalone session-based
+administrator authentication and the Node environment bridge remain a later stage.
+The original platform suite and TypeScript also pass locally.
+
+`npm run db:test-platform:namecheap` repeats the budget and queue SQL scenarios in
+uniquely named temporary tables on one hosting connection. It changes no permanent
+settings, spending records or queue entries and sends no provider requests. This
+checks MariaDB syntax/transactions sequentially; it is not a concurrent load test.
+No new schema or dependencies are needed. No hosted startup or DNS cutover yet.
+
+Remaining: Arena SQL, private image storage, standalone administrator authentication
+and Node runtime bridge, production build/staging and DNS, then optional previous
+production data import when an export becomes available.
