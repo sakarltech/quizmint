@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
-const require = createRequire(import.meta.url), { start } = require('../server.cjs');
+const require = createRequire(import.meta.url), { start } = require('../lib/namecheap-server.cjs');
 const keys = ['NODE_ENV','PORT','APP_URL','QUIZMINT_ADMIN_USER_ID','QUIZMINT_TRUST_PROXY','DB_HOST','DB_PORT','DB_NAME','DB_USER','DB_PASSWORD'];
 const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
 Object.assign(process.env, { NODE_ENV:'production',PORT:'3197',APP_URL:'https://quizmint.test',QUIZMINT_ADMIN_USER_ID:'',QUIZMINT_TRUST_PROXY:'',DB_HOST:'127.0.0.1',DB_PORT:'1',DB_NAME:'no_database',DB_USER:'no_user',DB_PASSWORD:'no_password' });

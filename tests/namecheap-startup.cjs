@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { start } = require('../server.cjs');
+const { start } = require('../lib/namecheap-server.cjs');
 
 test('production startup prepares Next and uses the hosting port', async () => {
   let options, handler, port, prepared = false;
@@ -37,7 +37,7 @@ test('startup propagates listen failure instead of reporting success', async () 
   }), /address unavailable/);
 });
 
-test('Passenger require-loader starts the app; ordinary module imports stay inert', async () => {
+test('required startup entry boots with or without a Passenger global', async () => {
   const { readFileSync } = require('node:fs');
   const { runInNewContext } = require('node:vm');
   const source = readFileSync(require.resolve('../server.cjs'), 'utf8');
@@ -46,8 +46,8 @@ test('Passenger require-loader starts the app; ordinary module imports stay iner
     const server = new EventEmitter();
     server.listen = (port, ready) => { listens++; assert.equal(port, 3000); ready(); };
     const next = () => ({ prepare: async () => { prepared++; }, getRequestHandler: () => () => {} });
-    const fakeRequire = name => name === 'node:fs' ? {mkdirSync(){},appendFileSync(_path,record){checkpoints.push(JSON.parse(record).phase);}} : name === 'node:http' ? { createServer: () => server } : name === 'next' ? next : require(name === './lib/namecheap-request.cjs' ? '../lib/namecheap-request.cjs' : name);
-    fakeRequire.main = {}; // Passenger's loader is the main module.
+    const fakeRequire = name => name === 'node:fs' ? {mkdirSync(){},appendFileSync(_path,record){checkpoints.push(JSON.parse(record).phase);}} : name === './lib/namecheap-server.cjs' ? {start: options => start({next,http:()=>server,env:sandbox.process.env,checkpoint:options.checkpoint})} : require(name);
+    fakeRequire.main = {}; // The hosting loader is the main module.
     const errors = [], sandbox = {
       require: fakeRequire, module: { exports: {} }, __dirname: require('node:path').resolve(__dirname, '..'), URL,
       process: { env: { NODE_ENV: 'production', APP_URL: 'https://staging.quizmint.co.uk' }, chdir() {}, exitCode: undefined },
@@ -58,9 +58,8 @@ test('Passenger require-loader starts the app; ordinary module imports stay iner
     runInNewContext(source, sandbox, { filename: 'server.cjs' });
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(errors, []);
-    assert.equal(prepared, passenger ? 1 : 0);
-    assert.equal(listens, passenger ? 1 : 0);
-    assert.deepEqual(checkpoints, passenger ? ['entry-loaded','validate-origin','origin-valid','next-create','next-prepare','next-ready','listen-start','listening'] : []);
-    assert.equal(typeof sandbox.module.exports.start, 'function');
+    assert.equal(prepared, 1);
+    assert.equal(listens, 1);
+    assert.deepEqual(checkpoints, ['entry-loaded','validate-origin','origin-valid','next-create','next-prepare','next-ready','listen-start','listening']);
   }
 });

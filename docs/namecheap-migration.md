@@ -488,3 +488,12 @@ validation, Next creation/preparation and socket listening. Failures include onl
 an error code and stack frames, not message/environment/request data. Ordinary
 module imports remain inert and the Passenger regression verifies checkpoint order.
 Pull, restore server.cjs, restart, request staging and inspect this checkpoint log.
+
+The successful hosting probe reports `passenger:false`; this supervisor requires
+the startup file without exposing global.PhusionPassenger. The previous guard still
+skipped boot, explaining the missing real-launcher checkpoint file. server.cjs is
+now an unconditional deployment entry point. Importable/testable start logic lives
+in lib/namecheap-server.cjs and never auto-starts on import. The loader regression
+now requires server.cjs with and without that global and verifies full startup in
+both cases. Runtime/startup checks and the real compiled-app HTTP smoke check pass.
+Pull and restart with server.cjs; no .next rebuild is needed for this launcher change.
