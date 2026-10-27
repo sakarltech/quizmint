@@ -35,7 +35,9 @@ async function start({ next = require('next'), env = process.env, http = createS
   return { server, app };
 }
 
-if (require.main === module) {
+// Passenger requires its startup file from node-loader.js, so require.main is
+// the loader rather than this module. Ordinary imports by tests stay inert.
+if (require.main === module || global.PhusionPassenger) {
   process.env.NODE_ENV ||= 'production';
   // Resolve local modules relative to the app, regardless of Passenger's cwd.
   process.chdir(path.resolve(__dirname));

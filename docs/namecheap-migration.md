@@ -456,3 +456,15 @@ Next: hosting runtime/build verification, admin provisioning, cPanel environment
 and Passenger restart on a staging hostname, real authenticated workflows and mail,
 then DNS/certificate cutover. Previous production export/image import is still
 separate; keep old hosting available until migration verification is complete.
+
+### Passenger startup follow-up
+
+The first staging request returned 503 after direct Node smoke tests passed. The
+launcher incorrectly started only when require.main matched server.cjs. Passenger's
+node-loader requires the configured startup file and exposes global.PhusionPassenger,
+so that condition skipped startup. The launcher now starts for either direct Node
+execution or Passenger loading, while ordinary library imports remain inert. A VM
+regression check simulates both require paths and verifies exactly one listen call.
+The runtime/request/startup suite passes (six node:test checks plus session checks).
+This changes server.cjs only at runtime; pull and restart the cPanel app without
+rebuilding .next. Confirm staging HTTP behavior; inspect hosting logs if 503 persists.
