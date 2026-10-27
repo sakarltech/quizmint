@@ -12,7 +12,7 @@ export async function POST(req:Request){
   for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>IMAGE_BYTES){await reader.cancel();throw Error('Use an image up to 600 KB after resizing.');}chunks.push(value);}
   const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length;}
   const type=rasterType(bytes);if(!type)throw Error('Use a PNG, JPG or WebP image. SVG and animated files are not supported.');
-  const id=crypto.randomUUID().replaceAll('-','');await imageBucket().put('question-images/'+id,bytes,{httpMetadata:{contentType:type},customMetadata:{owner,created:String(Date.now())}});
+  const id=crypto.randomUUID().replaceAll('-','');try{await (await imageBucket()).put('question-images/'+id,bytes,{httpMetadata:{contentType:type},customMetadata:{owner,created:String(Date.now())}});}catch{throw Error('Image uploads are unavailable. Please retry later.');}
   return response({id},201);
  }catch(e){return response({error:(e as Error).message||'Image upload failed.'},400);}
 }

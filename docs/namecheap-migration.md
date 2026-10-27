@@ -344,3 +344,50 @@ schema changes or dependencies are required, and no provider requests are made.
 Remaining: private image storage/access queries, standalone administrator identity
 and Node runtime bridge, production build/staging and DNS. Previous production
 data import remains optional once an export is available.
+
+## Stage 8: Private filesystem images
+
+Namecheap uploads now use QUIZMINT_IMAGE_DIR, a private directory outside the app
+checkout and web roots, for example `/home/quizxpmo/quizmint-storage/question-images`.
+Create the directory as the hosting account, chmod the storage directories to 700,
+and add the absolute path to private `.env.namecheap` and the cPanel Node environment.
+Never put it under public_html, www, public, htdocs or the application checkout.
+No web-server alias or public directory should expose it.
+
+Each image is a single .qmi file with bounded JSON metadata followed by its original
+raster bytes. Files are mode 600. Writes publish a complete, synced file atomically
+without replacing existing ids; read/head reject symlinks and invalid records. Ids
+are restricted to 32 lowercase hexadecimal characters. Head reads only the metadata;
+the viewing route checks authorization before loading image bytes. The 600 KB limit,
+PNG/JPG/WebP signature checks and required quiz alt text stay unchanged. Filesystem
+errors are not sent to upload clients as server paths. A process crash during upload
+can leave an unreferenced `.tmp` file; backups and occasional storage review remain
+hosting operations, not an automatic garbage-collection promise.
+
+Creator draft ownership, active quiz visibility and current-question Arena image
+access use native stores; future Arena visuals stay private. Deletion checks native
+MariaDB JSON_SEARCH restricted to question image.id fields. Closed quizzes and live
+Arena snapshots still protect their images. Expired snapshots stop pinning them.
+As before, verification/reference checks and blob deletion are separate operations;
+this stage does not introduce transactional synchronization between filesystem
+objects and concurrent saves/copies. Avoid automatic cleanup of live uploads.
+
+`npm run test:namecheap-images` checks file permissions, atomic collision handling,
+traversal, symlinks and corrupt files in disposable OS temporary directories.
+`npm run test:namecheap-image-routes` exercises uploads, ownership, limits, saved
+quiz protection, current/future Arena access and deletion with real filesystem
+storage and isolated native database fixtures. It uses neither D1 nor R2. The local
+fixture adapts the JSON_SEARCH query for SQLite; the hosting check below validates
+actual MariaDB syntax. Original API tests and TypeScript pass locally.
+
+`npm run images:check:namecheap` checks the configured directory by creating,
+reading and deleting one random probe image, then checks reference queries using
+uniquely named temporary copies of quizzes and arena_rooms. Permanent images and
+application data are unchanged. No schema changes or dependencies are needed.
+Back up this private directory alongside MariaDB; Git does not contain uploads.
+Existing R2 images are not automatically copied. Any later production data import
+must also transfer the referenced image objects and their ownership metadata.
+
+Remaining: standalone administrator identity and the Node environment bridge,
+production build/staging and DNS. Do not switch DNS or enable native runtime until
+those stages pass.
