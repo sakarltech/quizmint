@@ -2,6 +2,19 @@
 // This requires a standard Next.js build, not the existing Cloudflare artifact.
 const { createServer } = require('node:http');
 const path = require('node:path');
+const fs = require('node:fs');
+const autoLaunch = require.main === module || Boolean(global.PhusionPassenger);
+function startupCheckpoint(phase, error) {
+  if (!autoLaunch) return;
+  try {
+    const directory = path.join(__dirname, '.sites-runtime');
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : undefined;
+    const frames = error?.stack?.split('\n').filter(line => /^\s+at /.test(line)).slice(0, 6);
+    // Do not include error.message, environment values or request URLs.
+    fs.appendFileSync(path.join(directory, 'server-startup.log'), JSON.stringify({ phase, node: process.version, passenger: Boolean(global.PhusionPassenger), code, frames }) + '\n', { mode: 0o600 });
+  } catch { console.error('Unable to write QuizMint startup checkpoint.'); }
+}
 const { sanitizeRequest } = require('./lib/namecheap-request.cjs');
 
 async function start({ next = require('next'), env = process.env, http = createServer } = {}) {
@@ -10,8 +23,11 @@ async function start({ next = require('next'), env = process.env, http = createS
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('PORT must be an integer between 1 and 65535.');
   }
+  startupCheckpoint('next-create');
   const app = next({ dev, dir: __dirname });
+  startupCheckpoint('next-prepare');
   await app.prepare();
+  startupCheckpoint('next-ready');
   const handle = app.getRequestHandler();
   const server = http((req, res) => {
     sanitizeRequest(req, env);
@@ -29,23 +45,29 @@ async function start({ next = require('next'), env = process.env, http = createS
   await new Promise((resolve, reject) => {
     server.once('error', reject);
     // Passenger intercepts listen() to bind its own socket on cPanel.
+    startupCheckpoint('listen-start');
     server.listen(port, resolve);
   });
+  startupCheckpoint('listening');
   console.log('QuizMint Node.js server started.');
   return { server, app };
 }
 
 // Passenger requires its startup file from node-loader.js, so require.main is
 // the loader rather than this module. Ordinary imports by tests stay inert.
-if (require.main === module || global.PhusionPassenger) {
+if (autoLaunch) {
+  startupCheckpoint('entry-loaded');
   process.env.NODE_ENV ||= 'production';
   // Resolve local modules relative to the app, regardless of Passenger's cwd.
   process.chdir(path.resolve(__dirname));
   Promise.resolve().then(() => {
+    startupCheckpoint('validate-origin');
     const origin = new URL(process.env.APP_URL || '');
     if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Configure the public HTTPS APP_URL.');
+    startupCheckpoint('origin-valid');
     return start();
-  }).catch(() => {
+  }).catch(error => {
+    startupCheckpoint('startup-failed', error);
     console.error('QuizMint startup failed. Check dependencies, build and server configuration.');
     process.exitCode = 1;
   });

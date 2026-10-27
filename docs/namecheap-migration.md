@@ -480,3 +480,11 @@ returns only `QuizMint staging startup check: OK`. It records non-secret load/li
 markers in `.sites-runtime/passenger-check.log` (mode 600). Set it as the staging
 startup file, restart and inspect the response/log. Restore server.cjs after the
 check; this is not the application deployment entry point. Syntax checked locally.
+
+The isolated passenger-check entry point returned OK on staging, confirming the
+Node/Passenger route can serve HTTP. The real launcher now writes private boot
+checkpoints to `.sites-runtime/server-startup.log` covering entry, public-origin
+validation, Next creation/preparation and socket listening. Failures include only
+an error code and stack frames, not message/environment/request data. Ordinary
+module imports remain inert and the Passenger regression verifies checkpoint order.
+Pull, restore server.cjs, restart, request staging and inspect this checkpoint log.

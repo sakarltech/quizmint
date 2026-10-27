@@ -42,11 +42,11 @@ test('Passenger require-loader starts the app; ordinary module imports stay iner
   const { runInNewContext } = require('node:vm');
   const source = readFileSync(require.resolve('../server.cjs'), 'utf8');
   for (const passenger of [false, true]) {
-    let prepared = 0, listens = 0;
+    let prepared = 0, listens = 0;const checkpoints=[];
     const server = new EventEmitter();
     server.listen = (port, ready) => { listens++; assert.equal(port, 3000); ready(); };
     const next = () => ({ prepare: async () => { prepared++; }, getRequestHandler: () => () => {} });
-    const fakeRequire = name => name === 'node:http' ? { createServer: () => server } : name === 'next' ? next : require(name === './lib/namecheap-request.cjs' ? '../lib/namecheap-request.cjs' : name);
+    const fakeRequire = name => name === 'node:fs' ? {mkdirSync(){},appendFileSync(_path,record){checkpoints.push(JSON.parse(record).phase);}} : name === 'node:http' ? { createServer: () => server } : name === 'next' ? next : require(name === './lib/namecheap-request.cjs' ? '../lib/namecheap-request.cjs' : name);
     fakeRequire.main = {}; // Passenger's loader is the main module.
     const errors = [], sandbox = {
       require: fakeRequire, module: { exports: {} }, __dirname: require('node:path').resolve(__dirname, '..'), URL,
@@ -60,6 +60,7 @@ test('Passenger require-loader starts the app; ordinary module imports stay iner
     assert.deepEqual(errors, []);
     assert.equal(prepared, passenger ? 1 : 0);
     assert.equal(listens, passenger ? 1 : 0);
+    assert.deepEqual(checkpoints, passenger ? ['entry-loaded','validate-origin','origin-valid','next-create','next-prepare','next-ready','listen-start','listening'] : []);
     assert.equal(typeof sandbox.module.exports.start, 'function');
   }
 });
