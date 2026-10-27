@@ -43,7 +43,10 @@
     "test:namecheap-billing-routes": "node tests/namecheap-billing-routes.mjs",
     "test:namecheap-platform": "node --test tests/namecheap-platform.mjs",
     "test:namecheap-platform-routes": "node tests/namecheap-platform-routes.mjs",
-    "db:test-platform:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-platform.mjs"
+    "db:test-platform:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-platform.mjs",
+    "test:namecheap-arena": "node --test tests/namecheap-arena.mjs",
+    "test:namecheap-arena-routes": "node tests/namecheap-arena-routes.mjs",
+    "db:test-arena:namecheap": "node --env-file-if-exists=.env.namecheap scripts/test-namecheap-arena.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

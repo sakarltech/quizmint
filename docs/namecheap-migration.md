@@ -306,3 +306,41 @@ No new schema or dependencies are needed. No hosted startup or DNS cutover yet.
 Remaining: Arena SQL, private image storage, standalone administrator authentication
 and Node runtime bridge, production build/staging and DNS, then optional previous
 production data import when an export becomes available.
+
+## Stage 7: Arena rooms, players and answers
+
+Arena room listings, creation, state reads, joining, host controls, answers and
+room deletion select the native repository in Namecheap mode. Source quiz lookup
+uses QuizStore, with the same creator/admin ownership check. Immutable question
+snapshots and visual metadata stay in the room even if the source quiz is deleted.
+
+Every native room mutation locks the room first, then accesses its players/answers.
+This serializes joins against the 100-entry cap and the host's start, and answers
+against pause/reveal/deletion. Host commands recheck owner and version. Deadlines
+and room expiry are checked with database time after acquiring the lock; start,
+resume and pause timing use that same clock. Duplicate device joins reuse the player,
+case-folded names stay unique, and answer retries keep the first stored selection.
+Deletion removes answers, then players, then the room in one transaction, preserving
+foreign key order. Non-duplicate SQL errors are not hidden by INSERT IGNORE.
+
+Leaderboard sums are normalized to numbers and grouped for MariaDB strict SQL mode.
+Scores for the current question remain hidden until reveal. Existing two-second
+leaderboard caching, shared ranks, team/individual modes and creator/admin room
+separation remain. Image access checks/storage and standalone administrator identity
+are still separate pending stages; this does not enable a production Node cutover.
+
+`npm run test:namecheap-arena` exercises repository behavior and parallel requests
+with a serialized isolated driver fixture (not a load test).
+`npm run test:namecheap-arena-routes` checks native routes, cookies, ownership,
+origin guards, reconnects, answer privacy, pause/resume, snapshots, scoring, cap,
+expiry and cleanup without D1. The original API suite and TypeScript pass locally.
+
+`npm run db:test-arena:namecheap` checks the native SQL on uniquely named temporary
+copies of the three Arena tables. It changes no permanent rooms or results.
+Temporary LIKE copies retain columns and indexes, but do not retain foreign keys;
+this sequential hosting check is not a concurrent load or foreign-key test. No
+schema changes or dependencies are required, and no provider requests are made.
+
+Remaining: private image storage/access queries, standalone administrator identity
+and Node runtime bridge, production build/staging and DNS. Previous production
+data import remains optional once an export is available.
