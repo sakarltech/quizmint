@@ -468,3 +468,15 @@ regression check simulates both require paths and verifies exactly one listen ca
 The runtime/request/startup suite passes (six node:test checks plus session checks).
 This changes server.cjs only at runtime; pull and restart the cPanel app without
 rebuilding .next. Confirm staging HTTP behavior; inspect hosting logs if 503 persists.
+
+### Isolated staging startup diagnostic
+
+Staging still returned 503 after the require-loader correction, with empty app and
+cPanel error logs. The generated staging .htaccess points to the expected app root,
+Node 24 executable and server.cjs; APP_URL also matches staging. `passenger-check.cjs`
+is a temporary minimal HTTP entry point to distinguish a Passenger/hosting failure
+from Next/application initialization. It loads no private settings or database and
+returns only `QuizMint staging startup check: OK`. It records non-secret load/listen
+markers in `.sites-runtime/passenger-check.log` (mode 600). Set it as the staging
+startup file, restart and inspect the response/log. Restore server.cjs after the
+check; this is not the application deployment entry point. Syntax checked locally.
