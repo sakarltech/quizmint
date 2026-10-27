@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { arenaDriverFixture } from './helpers/namecheap-arena-driver.mjs';
+import { provisionAdministrator } from '../db/namecheap-admin.mjs';
+const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('wrangler/package.json'))('esbuild');
+const fixture = arenaDriverFixture();
+globalThis.__runtimePool = fixture.pool;
+const names = ['DB_NAME','DB_USER','DB_PASSWORD','APP_URL','QUIZMINT_ADMIN_USER_ID','QUIZ_TEACHER_EMAIL','QUIZMINT_RUNTIME'];
+const previous = Object.fromEntries(names.map(key => [key, process.env[key]]));
+Object.assign(process.env, { DB_NAME:'isolated_runtime_test',DB_USER:'test',DB_PASSWORD:'test-only',APP_URL:'https://quizmint.test',QUIZ_TEACHER_EMAIL:'public@example.test',QUIZMINT_RUNTIME:'worker' });
+delete process.env.QUIZMINT_ADMIN_USER_ID;
+try {
+  const plugin = { name:'standalone-runtime',setup(builder){
+    // Use the REAL Node environment replacement, not an env object with mock roles.
+    builder.onResolve({filter:/^cloudflare:workers$/},()=>({path:new URL('../lib/runtime-namecheap.ts',import.meta.url).pathname}));
+    builder.onResolve({filter:/^mysql2\/promise$/},()=>({path:'mysql',namespace:'fixture'}));
+    builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export const createPool=()=>globalThis.__runtimePool',loader:'js'}));
+  }};
+  await build({entryPoints:['app/api/account/route.ts','app/api/admin/route.ts','lib/server.ts','lib/ai-server.ts','lib/arena.ts','lib/question-images.ts','lib/runtime-namecheap.ts'],outbase:'.',outdir:'.sites-runtime/namecheap-runtime',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[plugin]});
+  const account=await import('../.sites-runtime/namecheap-runtime/app/api/account/route.mjs');
+  const adminRoute=await import('../.sites-runtime/namecheap-runtime/app/api/admin/route.mjs');
+  const server=await import('../.sites-runtime/namecheap-runtime/lib/server.mjs');
+  const {aiUser}=await import('../.sites-runtime/namecheap-runtime/lib/ai-server.mjs');
+  const {arenaOwner}=await import('../.sites-runtime/namecheap-runtime/lib/arena.mjs');
+  const {imageOwner}=await import('../.sites-runtime/namecheap-runtime/lib/question-images.mjs');
+  const {env}=await import('../.sites-runtime/namecheap-runtime/lib/runtime-namecheap.mjs');
+  assert.equal(env.QUIZMINT_RUNTIME,'namecheap');assert.equal(env.DB,undefined);assert.equal(env.BUCKET,undefined);
+  const forged={'oai-authenticated-user-id':'fake-admin','oai-authenticated-user-email':'public@example.test'};
+  const req=(path='/api/admin',method='GET',data,headers={})=>new Request('https://quizmint.test'+path,{method,headers:{Origin:'https://quizmint.test','Content-Type':'application/json',...headers},...(data?{body:JSON.stringify(data)}:{})});
+  assert.equal(await server.admin(req(undefined,undefined,undefined,forged)),false);
+  assert.equal((await adminRoute.GET(req(undefined,undefined,undefined,forged))).status,401);
+  const password='synthetic-admin-password-123';
+  assert.equal(await provisionAdministrator(fixture.pool,{email:'admin@example.test',password}),null);
+  assert.equal(fixture.sql.prepare('SELECT COUNT(*) n FROM creator_users').get().n,0);
+  const id=await provisionAdministrator(fixture.pool,{email:'admin@example.test',password,apply:true});
+  await assert.rejects(provisionAdministrator(fixture.pool,{email:'admin@example.test',password,apply:true}),/already exists/);
+  const login=await account.POST(req('/api/account','POST',{action:'login',email:'admin@example.test',password}));assert.equal(login.status,200);
+  const cookie=login.headers.get('set-cookie').split(';')[0], headers={...forged,Cookie:cookie};
+  assert.equal(await server.admin(req(undefined,undefined,undefined,headers)),false,'No pinned id means no administrator');
+  process.env.QUIZMINT_ADMIN_USER_ID=id;
+  assert.equal(await server.admin(req(undefined,undefined,undefined,headers)),true);
+  assert.equal((await adminRoute.GET(req(undefined,undefined,undefined,headers))).status,200);
+  assert.equal((await aiUser(req('/api/ai?admin=1','GET',null,headers))).id,'admin:'+id);
+  assert.equal((await arenaOwner(req('/api/arena?admin=1','GET',null,headers))).id,'admin:'+id);
+  assert.equal(await imageOwner(req('/api/question-images?admin=1','GET',null,headers),true),'admin:'+id);
+  assert.equal((await aiUser(req('/api/ai','GET',null,headers))).id,id,'Creator and admin actors stay separate');
+  const normal=await account.POST(req('/api/account','POST',{action:'register',email:'public@example.test',password}));assert.equal(normal.status,200);
+  const other={...forged,Cookie:normal.headers.get('set-cookie').split(';')[0]};
+  assert.equal(await server.admin(req(undefined,undefined,undefined,other)),false,'Matching legacy email never grants native admin');
+  assert.equal((await adminRoute.GET(req(undefined,undefined,undefined,other))).status,401);
+  assert.equal(server.sameOrigin(new Request('https://evil.test/api/account',{headers:{Origin:'https://evil.test'}})),false);
+  assert.equal(server.clientIp(req(undefined,undefined,undefined,{'cf-connecting-ip':'1.2.3.4'})),'unknown');
+  await account.DELETE(req('/api/account','DELETE',null,headers));
+  assert.equal(await server.admin(req(undefined,undefined,undefined,headers)),false,'Revocation removes admin access');
+  const second=await account.POST(req('/api/account','POST',{action:'login',email:'admin@example.test',password}));
+  const secondHeaders={Cookie:second.headers.get('set-cookie').split(';')[0]};
+  fixture.sql.prepare('UPDATE creator_sessions SET expires=0 WHERE user_id=?').run(id);
+  assert.equal(await server.admin(req(undefined,undefined,undefined,secondHeaders)),false,'Expired sessions cannot administer');
+  console.log('Namecheap runtime/admin checks passed: Node environment, provisioned account, password login, pinned identity, forged-header rejection, creator separation, origin checks, revocation and expiry. No permanent data or provider calls.');
+} finally {
+  for(const [key,value] of Object.entries(previous))value===undefined?delete process.env[key]:process.env[key]=value;
+  fixture.close();
+}

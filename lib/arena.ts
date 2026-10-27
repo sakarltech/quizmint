@@ -1,5 +1,5 @@
 import {nativeArenaStore} from './arena-store';
-import {admin,db} from './server';
+import {administrator,db} from './server';
 import {creator,digest} from './accounts';
 import type {Question} from './quiz';
 export type ArenaStatus='lobby'|'question'|'paused'|'reveal'|'finished';
@@ -8,7 +8,7 @@ export const ARENA_LIMIT=100;
 const leaderboardCache=new Map<string,{expires:number;value:Promise<any[]>}>();
 export function invalidateArena(code:string){for(const key of leaderboardCache.keys())if(key.startsWith(code+':'))leaderboardCache.delete(key);}
 export async function arenaOwner(req:Request){
- if(new URL(req.url).searchParams.get('admin')==='1')return await admin(req)?{id:'admin:'+req.headers.get('oai-authenticated-user-id'),isAdmin:true}:null;
+ if(new URL(req.url).searchParams.get('admin')==='1'){const user=await administrator(req);return user?{id:user.id,isAdmin:true}:null;}
  const u=await creator(req.headers.get('cookie'));return u?{id:u.id,isAdmin:false}:null;
 }
 export function roomCode(value:string){return /^[A-Z2-9]{6}$/.test(value);}

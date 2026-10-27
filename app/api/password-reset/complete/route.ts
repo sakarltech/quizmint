@@ -1,5 +1,5 @@
 import {passwordResetStore} from '../../../../lib/password-reset-store';
-import {body,response,sameOrigin} from '../../../../lib/server';
+import {body,response,sameOrigin,clientIp} from '../../../../lib/server';
 import {digest,passwordHash,SESSION_COOKIE,throttle} from '../../../../lib/accounts';
 import {resetEmailEnabled,sendResetEmail,emailOrigin} from '../../../../lib/reset-email';
 import {runInBackground} from '../../../../lib/runtime-context';
@@ -10,7 +10,7 @@ export async function POST(req:Request){
  try{
   const x=await body(req);if(typeof x.token!=='string'||!/^[a-f0-9]{64}$/.test(x.token))return response({error:invalid},400);
   if(typeof x.password!=='string'||x.password.length<12||x.password.length>128||x.password!==x.confirmPassword)return response({error:'Use 12–128 characters and make sure both passwords match.'},400);
-  if(!await throttle('reset-complete:'+(req.headers.get('cf-connecting-ip')||'unknown'),20))return response({error:'Please wait 15 minutes before trying again.'},429);
+  if(!await throttle('reset-complete:'+clientIp(req),20))return response({error:'Please wait 15 minutes before trying again.'},429);
   const hash=await digest(x.token),now=Date.now();
   const store=await passwordResetStore(),user=await store.find(hash,now);
   if(!user)return response({error:invalid},400);

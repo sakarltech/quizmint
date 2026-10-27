@@ -1,5 +1,5 @@
 import {nativeArenaStore} from '../../../../lib/arena-store';
-import {body,db,response,sameOrigin} from '../../../../lib/server';
+import {body,db,response,sameOrigin,clientIp} from '../../../../lib/server';
 import {digest,throttle} from '../../../../lib/accounts';
 import {invalidateArena,ARENA_LIMIT,arenaOwner,arenaState,nickname,participant,room,transition} from '../../../../lib/arena';
 type Context={params:Promise<{code:string}>};
@@ -17,7 +17,7 @@ export async function POST(req:Request,{params}:Context){if(!sameOrigin(req))ret
  try{const x=await body(req);
  if(x.action==='join'){
   if(r.status!=='lobby')return response({error:'This competition has started. Existing players can reconnect on their original device.'},409);
-  if(!await throttle('arena-join:'+code+':'+(req.headers.get('cf-connecting-ip')||'unknown'),120))return response({error:'Too many join attempts. Please wait.'},429);
+  if(!await throttle('arena-join:'+code+':'+clientIp(req),120))return response({error:'Too many join attempts. Please wait.'},429);
   const name=nickname(x.name);if(typeof x.token!=='string'||!/^[a-f0-9]{64}$/.test(x.token))throw Error('Unable to register this device. Please retry.');const hash=await digest(x.token);
   const native=await nativeArenaStore();if(native){const joined=await native.join({code,id:crypto.randomUUID(),tokenHash:hash,name,limit:ARENA_LIMIT});if(!joined)return response({error:'That name is taken, the room is full, or the competition has started. Choose another name or check with the host.'},409);invalidateArena(code);return response({player:joined.player},joined.created?201:200);}
   const previous=await db().prepare('SELECT id,name FROM arena_players WHERE room_code=? AND token_hash=?').bind(code,hash).first<any>();if(previous)return response({player:previous});

@@ -1,6 +1,6 @@
 import {quizSessionStore} from '../../../../../lib/quiz-session-store';
 import {quizStore} from '../../../../../lib/quiz-store';
-import {body,response,sameOrigin} from '../../../../../lib/server';
+import {body,response,sameOrigin,clientIp} from '../../../../../lib/server';
 import {digest,emailAddress,throttle} from '../../../../../lib/accounts';
 import {type Question} from '../../../../../lib/quiz';
 export const dynamic='force-dynamic';
@@ -28,7 +28,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  try{
   const {id}=await params,x=await body(req);
   if(x.action==='start'){
-   if(!await throttle('quiz-start:'+id+':'+(req.headers.get('cf-connecting-ip')||'unknown'),300))return response({error:'Too many starts. Please wait before trying again.'},429);
+   if(!await throttle('quiz-start:'+id+':'+clientIp(req),300))return response({error:'Too many starts. Please wait before trying again.'},429);
    const q=await (await quizStore()).get(id);if(!q||!q.active)return response({error:'This quiz is unavailable or closed.'},410);
    const student=emailAddress(x.student),questions=JSON.parse(q.questions),now=Date.now(),token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join(''),hash=await digest(token),runId=crypto.randomUUID();
    const snapshot={title:q.title,subject:q.subject,description:q.description,timeLimitMinutes:q.time_limit_minutes||0,questions},answers=Array(questions.length).fill(-1),deadline=snapshot.timeLimitMinutes?now+snapshot.timeLimitMinutes*60000:0;

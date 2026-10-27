@@ -1,11 +1,11 @@
 import {accountStore} from '../../../lib/account-store';
-import {body,response,sameOrigin} from '../../../lib/server';
+import {body,response,sameOrigin,clientIp} from '../../../lib/server';
 import {creator,digest,emailAddress,equal,passwordHash,SESSION_COOKIE,throttle} from '../../../lib/accounts';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){const user=await creator(req.headers.get('cookie'));return user?response({email:user.email}):response({error:'Please sign in.'},401);}
 export async function POST(req:Request){if(!sameOrigin(req))return response({error:'Invalid origin.'},403);
  try{const x=await body(req);const email=emailAddress(x.email);if(!['register','login'].includes(x.action)||typeof x.password!=='string'||x.password.length>128)throw Error('Check your email and password.');
- const ip=req.headers.get('cf-connecting-ip')||'unknown';if(!await throttle('ip:'+ip,60)||!await throttle('email:'+email,12))return response({error:'Too many attempts. Please try again in 15 minutes.'},429);
+ const ip=clientIp(req);if(!await throttle('ip:'+ip,60)||!await throttle('email:'+email,12))return response({error:'Too many attempts. Please try again in 15 minutes.'},429);
  const store=await accountStore();let user=await store.findByEmail(email);
  if(x.action==='register'){if(x.password.length<12)throw Error('Use a password of at least 12 characters.');if(user)return response({error:'Unable to create account. Try signing in or use another email.'},400);
  const salt=crypto.randomUUID(),id=crypto.randomUUID(),hash=await passwordHash(x.password,salt);if(!await store.createUser({id,email,passwordHash:hash,salt,created:new Date().toISOString()}))return response({error:'Unable to create account. Try signing in or use another email.'},400);user={id,email,password_hash:hash,salt};

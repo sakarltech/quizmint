@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync,readdirSync} from 'node:fs';
@@ -32,7 +33,8 @@ const plugin={name:'env',setup(b){
 }};
 await build({entryPoints:['app/api/teacher/route.ts','app/api/library/route.ts','app/api/quiz/[id]/route.ts','app/api/quiz/[id]/session/route.ts'],outbase:'.',outdir:'.sites-runtime/timing-tests',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[plugin]});
 const teacher=await import('../.sites-runtime/timing-tests/app/api/teacher/route.mjs'),library=await import('../.sites-runtime/timing-tests/app/api/library/route.mjs'),student=await import('../.sites-runtime/timing-tests/app/api/quiz/[id]/route.mjs'),session=await import('../.sites-runtime/timing-tests/app/api/quiz/[id]/session/route.mjs');
-const root='https://example.test',admin={'oai-authenticated-user-id':'admin','oai-authenticated-user-email':'admin@example.test'};
+if(namecheap){globalThis.__timingEnv.QUIZMINT_ADMIN_USER_ID='admin-user';sql.prepare('INSERT INTO creator_users VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update('a'.repeat(64)).digest('hex'),'admin-user',Date.now()+600000);}
+const root='https://example.test',admin=namecheap?{cookie:'__Host-quiz_session='+'a'.repeat(64)}:{'oai-authenticated-user-id':'admin','oai-authenticated-user-email':'admin@example.test'};
 const request=(path,data,method='POST',headers={},origin=root)=>new Request(root+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...headers},...(data?{body:JSON.stringify(data)}:{})});
 const draft={title:'Test timing',subject:'Maths',description:'Choose one answer.',questions:[{prompt:'2 + 2?',options:['1','2','3','4'],correct:3,explanation:'Two plus two makes four.'},{prompt:'1 + 1?',options:['1','2','3','4'],correct:1,explanation:'One plus one makes two.'}]};
 for(const limit of [-1,241,1.5,'30',null]){if(limit===null)continue;assert.equal((await teacher.POST(request('/api/admin',{...draft,timeLimitMinutes:limit},'POST',admin))).status,400);}

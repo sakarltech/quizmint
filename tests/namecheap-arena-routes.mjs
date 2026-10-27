@@ -55,7 +55,7 @@ try {
   assert.equal((await call('POST', { action: 'join', name: 'Late', token: 'c'.repeat(64) })).status, 409);
   const answers = await Promise.all([call('POST', { action: 'answer', index: 0, selected: 3 }, guest(playerToken)), call('POST', { action: 'answer', index: 0, selected: 0 }, guest(playerToken))]);
   assert.ok(answers.every(r => r.status === 200));
-  assert.deepEqual(await answers[0].json(), await answers[1].json());
+  const firstAnswer=await answers[0].json();assert.deepEqual(firstAnswer, await answers[1].json());
   state = await (await call('GET')).json(); assert.equal(state.leaderboard[0].score, 0); assert.equal(state.answered, 1);
   assert.equal((await call('PATCH', { action: 'pause', version: state.version }, host)).status, 200);
   assert.equal((await call('POST', { action: 'answer', index: 0, selected: 3 }, guest(secondToken))).status, 409);
@@ -65,7 +65,7 @@ try {
   assert.equal((await call('POST', { action: 'answer', index: 0, selected: 3 }, guest(secondToken))).status, 409);
   state = await (await call('GET')).json();
   assert.equal((await call('PATCH', { action: 'reveal', version: state.version }, host)).status, 200);
-  state = await (await call('GET')).json(); assert.equal(state.question.correct, 3); assert.equal(state.leaderboard[0].score, 1000);
+  state = await (await call('GET')).json(); assert.equal(state.question.correct, 3); assert.equal(state.leaderboard[0].score, firstAnswer.selected===3?1000:0);
   assert.equal((await call('POST', { action: 'answer', index: 0, selected: 3 }, guest(secondToken))).status, 409);
   assert.equal((await call('PATCH', { action: 'next', version: state.version }, host)).status, 200);
   sql.prepare('DELETE FROM quizzes WHERE id=?').run('quiz-owner');

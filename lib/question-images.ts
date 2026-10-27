@@ -2,13 +2,13 @@ import {nativeImageBucket,nativeImageStore} from './image-store';
 import {quizStore} from './quiz-store';
 import {room} from './arena';
 import {env} from 'cloudflare:workers';
-import {admin,db} from './server';
+import {administrator,db} from './server';
 import {creator} from './accounts';
 export const IMAGE_BYTES=600*1024;
 export const imageId=(id:unknown):id is string=>typeof id==='string'&&/^[a-f0-9]{32}$/.test(id);
 export async function imageBucket(){const native=await nativeImageBucket();if(native)return native;if(!env.BUCKET)throw Error('Image uploads are unavailable. Please retry later.');return env.BUCKET;}
 export async function imageOwner(req:Request,adminMode=false){
- if(adminMode)return await admin(req)?'admin:'+req.headers.get('oai-authenticated-user-id'):null;
+ if(adminMode)return (await administrator(req))?.id||null;
  return (await creator(req.headers.get('cookie')))?.id||null;
 }
 export async function verifyQuestionImages(questions:any[],owner:string){

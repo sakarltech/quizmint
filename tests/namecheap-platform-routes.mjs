@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { platformDriverFixture } from './helpers/namecheap-platform-driver.mjs';
 const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('wrangler/package.json'))('esbuild');
 const fixture = platformDriverFixture();
 globalThis.__platformPool = fixture.pool;
-globalThis.__platformEnv = { QUIZMINT_RUNTIME: 'namecheap', QUIZ_TEACHER_EMAIL: 'admin@example.test', OPENAI_API_KEY: 'test-only', DB: { prepare() { throw Error('D1 must not be used.'); } } };
+globalThis.__platformEnv = { QUIZMINT_RUNTIME: 'namecheap', QUIZMINT_ADMIN_USER_ID: 'admin-user', OPENAI_API_KEY: 'test-only', DB: { prepare() { throw Error('D1 must not be used.'); } } };
 const previous = Object.fromEntries(['DB_NAME', 'DB_USER', 'DB_PASSWORD'].map(key => [key, process.env[key]]));
 Object.assign(process.env, { DB_NAME: 'isolated_platform_test', DB_USER: 'test', DB_PASSWORD: 'test-only' });
 const originalFetch = globalThis.fetch;
@@ -18,7 +19,8 @@ try {
   await build({ entryPoints: ['app/api/platform/route.ts', 'lib/platform-controls.ts'], outbase: '.', outdir: '.sites-runtime/namecheap-platform-routes', bundle: true, platform: 'node', format: 'esm', outExtension: { '.js': '.mjs' }, plugins: [plugin] });
   const route = await import('../.sites-runtime/namecheap-platform-routes/app/api/platform/route.mjs');
   const controls = await import('../.sites-runtime/namecheap-platform-routes/lib/platform-controls.mjs');
-  const root = 'https://quizmint.test', admin = { 'oai-authenticated-user-id': 'owner', 'oai-authenticated-user-email': 'admin@example.test' };
+  const token='a'.repeat(64);fixture.sql.prepare('INSERT INTO creator_users VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');fixture.sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update(token).digest('hex'),'admin-user',Date.now()+600000);
+  const root = 'https://quizmint.test', admin = { Cookie:'__Host-quiz_session='+token };
   const request = (method, value, headers = admin, origin = root) => new Request(root + '/api/platform', { method, headers: { ...headers, Origin: origin, 'Content-Type': 'application/json' }, ...(value ? { body: JSON.stringify(value) } : {}) });
   const save = value => route.PATCH(request('PATCH', { ...controls.defaults, ...value }));
   assert.equal((await route.GET(request('GET', null, {}))).status, 403);

@@ -2,6 +2,7 @@
 // This requires a standard Next.js build, not the existing Cloudflare artifact.
 const { createServer } = require('node:http');
 const path = require('node:path');
+const { sanitizeRequest } = require('./lib/namecheap-request.cjs');
 
 async function start({ next = require('next'), env = process.env, http = createServer } = {}) {
   const dev = env.NODE_ENV === 'development';
@@ -13,6 +14,7 @@ async function start({ next = require('next'), env = process.env, http = createS
   await app.prepare();
   const handle = app.getRequestHandler();
   const server = http((req, res) => {
+    sanitizeRequest(req, env);
     Promise.resolve().then(() => handle(req, res)).catch(() => {
       // Never log request URLs: password-recovery URLs may contain private data.
       console.error('QuizMint request failed.');
@@ -37,7 +39,11 @@ if (require.main === module) {
   process.env.NODE_ENV ||= 'production';
   // Resolve local modules relative to the app, regardless of Passenger's cwd.
   process.chdir(path.resolve(__dirname));
-  start().catch(() => {
+  Promise.resolve().then(() => {
+    const origin = new URL(process.env.APP_URL || '');
+    if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Configure the public HTTPS APP_URL.');
+    return start();
+  }).catch(() => {
     console.error('QuizMint startup failed. Check dependencies, build and server configuration.');
     process.exitCode = 1;
   });

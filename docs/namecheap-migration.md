@@ -391,3 +391,68 @@ must also transfer the referenced image objects and their ownership metadata.
 Remaining: standalone administrator identity and the Node environment bridge,
 production build/staging and DNS. Do not switch DNS or enable native runtime until
 those stages pass.
+
+## Stage 9: Standalone Node runtime and administrator sessions
+
+The standard Next webpack build replaces `cloudflare:workers` with the private
+Node environment module. It reads process.env at request time, forces native-store
+selection and exposes no D1/R2 bindings. The original Vinext path remains separate.
+Namecheap build/dev commands explicitly choose webpack; one static generation worker
+reduces build concurrency on shared hosting. No private settings go in nextConfig.env.
+`npm run build:namecheap` produces `.next`, not the old Workers deployment output.
+
+The Node startup file requires a valid public HTTPS APP_URL when launched directly.
+The CLI start command reads `.env.namecheap`; cPanel's direct server.cjs startup uses
+its own saved environment variables. Keep both settings consistent. DB, SMTP, image
+path, provider keys and trusted public origin must be available to the cPanel process.
+A successful build does not prove the cPanel application has those settings.
+
+Native admin rights require a current, unexpired MariaDB login session whose account
+id equals private QUIZMINT_ADMIN_USER_ID. A public registration email is not an admin
+grant; QUIZ_TEACHER_EMAIL and ChatGPT headers grant nothing in native mode. Admin UI
+redirects to `/login?next=admin` or `admin-health`. The login page allows only explicit
+internal destinations. Admin AI wallets, image ownership and Arena rooms use the
+verified `admin:<account-id>` actor, separate from that account's creator actor.
+Session revocation/password reset/expiry removes access until the next valid login.
+
+Server startup strips inbound oai-, cf- and x-quizmint- headers and sets the internal
+client IP from the socket peer. Forwarded host/protocol cannot select application
+origin; CSRF checks use APP_URL in native mode. Proxy trust defaults OFF. On Passenger,
+this may group users under the local proxy's IP until its behavior is verified.
+Only set QUIZMINT_TRUST_PROXY=loopback after confirming that local Apache appends or
+overwrites X-Forwarded-For. Then the last valid appended address is used, only when
+the socket peer is loopback. Public next-start or a different launcher would bypass
+this request normalization; cPanel must launch server.cjs. CLI dev is local-only.
+
+Administrator provisioning is a separate explicit step after hosting checks:
+1. Set a new private QUIZMINT_ADMIN_EMAIL and QUIZMINT_ADMIN_PASSWORD (12–128 chars)
+   in `.env.namecheap`. Never paste the password into chat or a shell command.
+2. `npm run admin:setup:namecheap` previews readiness without writing.
+3. `npm run admin:setup:namecheap -- --apply` creates a NEW account and prints its id.
+   It never promotes/updates an existing email; choose a new controlled email if an
+   account already exists. The password is hashed identically to normal login.
+4. Copy the printed QUIZMINT_ADMIN_USER_ID to private `.env.namecheap` and cPanel's
+   Node environment. Remove QUIZMINT_ADMIN_PASSWORD after success. No bootstrap
+   session is issued. Sign in through `/login` with the provisioned credentials.
+These commands create one permanent account only when explicitly applied.
+
+`npm run test:namecheap-runtime` uses an isolated database fixture, the actual Node
+environment bridge and real password/session code. It checks dry-run provisioning,
+password login, pinned roles, forged-header rejection, creator/admin isolation,
+revocation/expiry, origin rules and launcher sanitization. It changes no hosting data.
+The native platform/timing fixtures now use pinned admin sessions. The Arena parallel
+answer fixture accepts either valid first writer, rather than assuming async request
+order guarantees the winning answer.
+
+The full local production build passed. `npm run test:namecheap-built` starts the
+compiled app on a temporary loopback-only port 3197 and checks public pages, local
+login redirects, anonymous API denial, spoofed-header denial and origin checks. It
+sets dummy database settings and sends no provider requests. Run with no process
+already using that port. This is an HTTP smoke check, not an authenticated end-to-end
+production workflow or a Passenger/TLS/load test. Original API/platform suites and
+native route suites passed locally as well.
+
+Next: hosting runtime/build verification, admin provisioning, cPanel environment
+and Passenger restart on a staging hostname, real authenticated workflows and mail,
+then DNS/certificate cutover. Previous production export/image import is still
+separate; keep old hosting available until migration verification is complete.

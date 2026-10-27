@@ -1,5 +1,5 @@
 import {meteredAI,platformConfig} from '../../../lib/platform-controls';
-import {response,sameOrigin} from '../../../lib/server';
+import {response,sameOrigin,clientIp} from '../../../lib/server';
 import {settings} from '../../../lib/ai-server';
 import {throttle} from '../../../lib/accounts';
 import {guideReply,helpArticles,helpLinks} from '../../../lib/help-knowledge';
@@ -14,7 +14,7 @@ export async function POST(req:Request){
  const message=input.message.trim();
  const history=Array.isArray(input.history)?input.history.slice(-6).filter((m:any)=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.length<=1600).map((m:any)=>({role:m.role,content:m.content})):[];
  try{
-  if(!await throttle('minty:ip:'+(req.headers.get('cf-connecting-ip')||'unknown'),12))return response({error:'Minty’s chat limit for this network has been reached. Try again in 15 minutes, or browse the help centre.'},429);
+  if(!await throttle('minty:ip:'+clientIp(req),12))return response({error:'Minty’s chat limit for this network has been reached. Try again in 15 minutes, or browse the help centre.'},429);
   const config=settings();if(!config.OPENAI_API_KEY)return response(guideReply(message));
   const controls=await platformConfig();const configuredLimit=Number(config.MINTY_GLOBAL_LIMIT||controls.mintyGlobalLimit);const limit=Number.isInteger(configuredLimit)&&configuredLimit>0?Math.min(configuredLimit,5000):60;
   if(!await throttle('minty:global',limit))return response(guideReply(message));

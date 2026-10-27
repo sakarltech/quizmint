@@ -1,5 +1,5 @@
 import {passwordResetStore} from '../../../../lib/password-reset-store';
-import {body,response,sameOrigin} from '../../../../lib/server';
+import {body,response,sameOrigin,clientIp} from '../../../../lib/server';
 import {digest,emailAddress,throttle} from '../../../../lib/accounts';
 import {resetEmailEnabled,sendResetEmail,emailOrigin} from '../../../../lib/reset-email';
 import {runInBackground} from '../../../../lib/runtime-context';
@@ -10,7 +10,7 @@ export async function POST(req:Request){
  if(!sameOrigin(req)||req.headers.get('sec-fetch-site')==='cross-site')return response({error:'Invalid origin.'},403);
  try{
   const x=await body(req),email=emailAddress(x.email);
-  if(!await throttle('reset-ip:'+(req.headers.get('cf-connecting-ip')||'unknown'),10))return response({error:'Please wait 15 minutes before requesting more reset links.'},429);
+  if(!await throttle('reset-ip:'+clientIp(req),10))return response({error:'Please wait 15 minutes before requesting more reset links.'},429);
   if(!resetEmailEnabled())return response({error:'Password recovery email is not configured yet. Contact admin@sakarltech.com for help.'},503);
   if(!await throttle('reset-email:'+email,3))return response({message},202);
   const token=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join(''),hash=await digest(token),now=Date.now();

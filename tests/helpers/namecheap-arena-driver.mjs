@@ -10,7 +10,7 @@ export function arenaDriverFixture() {
     const adapted = query.replace(/ FOR UPDATE$/, '').replace(/ ON DUPLICATE KEY UPDATE user_id=VALUES\(user_id\)$/, ' ON CONFLICT(user_id) DO NOTHING').replace(/ ON DUPLICATE KEY UPDATE `key`=VALUES\(`key`\)$/, ' ON CONFLICT(key) DO NOTHING');
     try {
       const statement = sql.prepare(adapted);
-      return query.startsWith('SELECT') ? [statement.all(...values)] : [statement.run(...values)];
+      return /^(SELECT|WITH)/.test(query) ? [statement.all(...values)] : [statement.run(...values)];
     } catch (error) {
       if (error.message.startsWith('UNIQUE constraint failed:')) error.code = 'ER_DUP_ENTRY';
       throw error;
