@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { arenaDriverFixture } from './helpers/namecheap-arena-driver.mjs';
-import { provisionAdministrator } from '../db/namecheap-admin.mjs';
+import { provisionAdministrator, inspectAdministrator } from '../db/namecheap-admin.mjs';
 const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('wrangler/package.json'))('esbuild');
 const fixture = arenaDriverFixture();
 globalThis.__runtimePool = fixture.pool;
@@ -34,6 +34,9 @@ try {
   assert.equal(fixture.sql.prepare('SELECT COUNT(*) n FROM creator_users').get().n,0);
   const id=await provisionAdministrator(fixture.pool,{email:'admin@example.test',password,apply:true});
   await assert.rejects(provisionAdministrator(fixture.pool,{email:'admin@example.test',password,apply:true}),/already exists/);
+  assert.deepEqual(await inspectAdministrator(fixture.pool,{id,email:'admin@example.test',password}),{accountExists:true,emailMatches:true,passwordMatches:true});
+  assert.deepEqual(await inspectAdministrator(fixture.pool,{id,email:'other@example.test',password:'wrong-password'}),{accountExists:true,emailMatches:false,passwordMatches:false});
+  assert.equal((await inspectAdministrator(fixture.pool,{id:'missing'})).accountExists,false);
   const login=await account.POST(req('/api/account','POST',{action:'login',email:'admin@example.test',password}));assert.equal(login.status,200);
   const cookie=login.headers.get('set-cookie').split(';')[0], headers={...forged,Cookie:cookie};
   assert.equal(await server.admin(req(undefined,undefined,undefined,headers)),false,'No pinned id means no administrator');

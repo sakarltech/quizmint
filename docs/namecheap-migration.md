@@ -511,3 +511,15 @@ listener-unix/tcp classification and first-request/failure markers; no socket pa
 request URL, error message or credential values are recorded. This addresses the
 listener handoff; confirm on staging rather than treating local checks as proof of
 live routing. DNS was already exercised by the successful staging probe.
+
+### Live administrator login diagnostic
+
+After staging loaded, login returned the generic 401 credential error. The read-only
+`npm run admin:check:namecheap -- --password` command looks up the pinned administrator
+id in the CLI-configured database, compares the private configured email, and checks
+a password entered through a hidden terminal prompt. It prints only boolean results,
+never email, password, salt or hashes, and creates/revokes no sessions or accounts.
+Use the same password as the browser attempt. Passing this CLI check does not prove
+cPanel has the same database variables; compare its saved database configuration if
+the CLI credentials match but browser login still fails. Wrong/right/missing account
+diagnostic cases pass in the isolated runtime suite.
