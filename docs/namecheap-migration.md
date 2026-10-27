@@ -497,3 +497,17 @@ in lib/namecheap-server.cjs and never auto-starts on import. The loader regressi
 now requires server.cjs with and without that global and verifies full startup in
 both cases. Runtime/startup checks and the real compiled-app HTTP smoke check pass.
 Pull and restart with server.cjs; no .next rebuild is needed for this launcher change.
+
+### Listener-first LiteSpeed startup
+
+The installed lsnode loader confirms that customListen reserves the first HTTP
+listener and ignores subsequent calls. The launcher now creates and binds its HTTP
+server before requiring/initializing Next, then gates incoming requests on a readiness
+promise. Failed preparation rejects that gate and closes the listener. The regression
+checks first-listener order and that early requests wait for Next and still pass
+through header sanitization. Seven startup/request checks and the compiled-app HTTP
+smoke check pass. Private checkpoints now include time/pid, an lsnode boolean,
+listener-unix/tcp classification and first-request/failure markers; no socket path,
+request URL, error message or credential values are recorded. This addresses the
+listener handoff; confirm on staging rather than treating local checks as proof of
+live routing. DNS was already exercised by the successful staging probe.
