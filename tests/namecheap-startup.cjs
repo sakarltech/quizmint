@@ -63,7 +63,7 @@ test('required startup entry boots with or without a Passenger global', async ()
     assert.deepEqual(errors, []);
     assert.equal(prepared, 1);
     assert.equal(listens, 1);
-    assert.deepEqual(checkpoints, ['entry-loaded','validate-origin','origin-valid','listen-start','listening','next-create','next-prepare','next-ready']);
+    assert.deepEqual(checkpoints, ['entry-loaded','validate-origin','origin-valid','listen-start','listening','next-create','next-prepare','next-ready','mail-config-check-failed']);
   }
 });
 

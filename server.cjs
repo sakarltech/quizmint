@@ -2,14 +2,14 @@
 // This requires a standard Next.js build, not the existing Cloudflare artifact.
 const path = require('node:path');
 const fs = require('node:fs');
-function startupCheckpoint(phase, error) {
+function startupCheckpoint(phase, error, checks) {
   try {
     const directory = path.join(__dirname, '.sites-runtime');
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : undefined;
     const frames = error?.stack?.split('\n').filter(line => /^\s+at /.test(line)).slice(0, 6);
     // Do not include error.message, environment values or request URLs.
-    fs.appendFileSync(path.join(directory, 'server-startup.log'), JSON.stringify({ phase, time: new Date().toISOString(), pid: process.pid, node: process.version, passenger: Boolean(global.PhusionPassenger), lsnode: Boolean(global.LsNode), code, frames }) + '\n', { mode: 0o600 });
+    fs.appendFileSync(path.join(directory, 'server-startup.log'), JSON.stringify({ phase, time: new Date().toISOString(), pid: process.pid, node: process.version, passenger: Boolean(global.PhusionPassenger), lsnode: Boolean(global.LsNode), code, frames, checks }) + '\n', { mode: 0o600 });
   } catch { console.error('Unable to write QuizMint startup checkpoint.'); }
 }
 const { start } = require('./lib/namecheap-server.cjs');
@@ -24,7 +24,13 @@ Promise.resolve().then(() => {
   const origin = new URL(process.env.APP_URL || '');
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Configure the public HTTPS APP_URL.');
   startupCheckpoint('origin-valid');
-  return start({ checkpoint: startupCheckpoint });
+  return start({ checkpoint: startupCheckpoint }).then(async result => {
+    try {
+      const { mailConfigStatus } = await import('./lib/mail/config-check.mjs');
+      startupCheckpoint('mail-config', undefined, mailConfigStatus(process.env));
+    } catch { startupCheckpoint('mail-config-check-failed'); }
+    return result;
+  });
 }).catch(error => {
   startupCheckpoint('startup-failed', error);
   console.error('QuizMint startup failed. Check dependencies, build and server configuration.');

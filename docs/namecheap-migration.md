@@ -523,3 +523,15 @@ Use the same password as the browser attempt. Passing this CLI check does not pr
 cPanel has the same database variables; compare its saved database configuration if
 the CLI credentials match but browser login still fails. Wrong/right/missing account
 diagnostic cases pass in the isolated runtime suite.
+
+### Recovery availability in the hosted process
+
+Recovery remained disabled after SMTP settings were added in cPanel. The real entry
+now records a private `mail-config` checkpoint after successful startup. It validates
+the live process environment with the SMTP validator and trusted-origin helper,
+reporting booleans and invalid field names only (no values or password fingerprints).
+This distinguishes missing/invalid live settings from the CLI .env configuration,
+stale processes or an old browser page. A failed diagnostic cannot prevent startup.
+Pull, stop/start, request staging, then inspect the newest mail-config checkpoint and
+GET /api/password-reset/request. No rebuild is needed for this entry/helper change.
+The mail status test and runtime/startup suite pass locally.
