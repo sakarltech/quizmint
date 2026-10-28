@@ -13,6 +13,7 @@ function startupCheckpoint(phase, error, checks) {
   } catch { console.error('Unable to write QuizMint startup checkpoint.'); }
 }
 const { start } = require('./lib/namecheap-server.cjs');
+const { loadPrivateEnvironment } = require('./lib/namecheap-env.cjs');
 
 // No main-module or supervisor-global detection: the configured entry always boots.
 startupCheckpoint('entry-loaded');
@@ -20,6 +21,8 @@ process.env.NODE_ENV ||= 'production';
 // Resolve local modules relative to the app, regardless of Passenger's cwd.
 process.chdir(path.resolve(__dirname));
 Promise.resolve().then(() => {
+  const loaded = loadPrivateEnvironment(__dirname);
+  startupCheckpoint(loaded ? 'private-env-loaded' : 'private-env-absent');
   startupCheckpoint('validate-origin');
   const origin = new URL(process.env.APP_URL || '');
   if (origin.protocol !== 'https:' || origin.username || origin.password || origin.pathname !== '/' || origin.search || origin.hash) throw new Error('Configure the public HTTPS APP_URL.');

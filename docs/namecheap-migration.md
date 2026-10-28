@@ -535,3 +535,19 @@ stale processes or an old browser page. A failed diagnostic cannot prevent start
 Pull, stop/start, request staging, then inspect the newest mail-config checkpoint and
 GET /api/password-reset/request. No rebuild is needed for this entry/helper change.
 The mail status test and runtime/startup suite pass locally.
+
+### Private environment fallback for cPanel startup
+
+The live worker still lacked SMTP host/user/password despite the cPanel UI listing
+those fields. The launcher now loads the existing private `.env.namecheap` before
+origin validation and Next initialization, using Node's native loadEnvFile parser.
+This fills missing process settings while preserving cPanel overrides and intentional
+blank values. The file is optional for deployments with complete cPanel settings;
+when present it must be a regular, non-symlink file with mode 600. No values are
+logged. The private-env-loaded/absent checkpoint confirms which source was available.
+This supersedes the earlier requirement that every setting be duplicated in cPanel:
+the private file can supply defaults, but cPanel variables still take precedence.
+Quoted # passwords, override precedence, missing files and permission/symlink guards
+pass in the runtime suite (nine startup/request/env checks plus account checks).
+Pull, chmod 600 .env.namecheap, terminate only the QuizMint lsnode worker and request
+the recovery availability endpoint again. No .next rebuild is needed.

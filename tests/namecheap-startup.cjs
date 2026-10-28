@@ -49,7 +49,7 @@ test('required startup entry boots with or without a Passenger global', async ()
     const server = new EventEmitter();
     server.listen = (port, ready) => { listens++; assert.equal(port, 3000); ready(); };
     const next = () => ({ prepare: async () => { prepared++; }, getRequestHandler: () => () => {} });
-    const fakeRequire = name => name === 'node:fs' ? {mkdirSync(){},appendFileSync(_path,record){checkpoints.push(JSON.parse(record).phase);}} : name === './lib/namecheap-server.cjs' ? {start: options => start({next,http:()=>server,env:sandbox.process.env,checkpoint:options.checkpoint})} : require(name);
+    const fakeRequire = name => name === 'node:fs' ? {mkdirSync(){},appendFileSync(_path,record){checkpoints.push(JSON.parse(record).phase);}} : name === './lib/namecheap-env.cjs' ? {loadPrivateEnvironment:()=>false} : name === './lib/namecheap-server.cjs' ? {start: options => start({next,http:()=>server,env:sandbox.process.env,checkpoint:options.checkpoint})} : require(name);
     fakeRequire.main = {}; // The hosting loader is the main module.
     const errors = [], sandbox = {
       require: fakeRequire, module: { exports: {} }, __dirname: require('node:path').resolve(__dirname, '..'), URL,
@@ -63,7 +63,7 @@ test('required startup entry boots with or without a Passenger global', async ()
     assert.deepEqual(errors, []);
     assert.equal(prepared, 1);
     assert.equal(listens, 1);
-    assert.deepEqual(checkpoints, ['entry-loaded','validate-origin','origin-valid','listen-start','listening','next-create','next-prepare','next-ready','mail-config-check-failed']);
+    assert.deepEqual(checkpoints, ['entry-loaded','private-env-absent','validate-origin','origin-valid','listen-start','listening','next-create','next-prepare','next-ready','mail-config-check-failed']);
   }
 });
 
