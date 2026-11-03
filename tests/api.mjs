@@ -36,6 +36,8 @@ assert.equal((await account.POST(accountReq('register','invalid','a-secure-test-
 assert.equal((await account.POST(accountReq('register','a@example.test','short'))).status,400);
 const registration=await account.POST(accountReq('register','A@example.test','a-secure-test-password'));assert.equal(registration.status,200);
 const cookie=registration.headers.get('set-cookie').split(';')[0];assert.ok(registration.headers.get('set-cookie').includes('HttpOnly; Secure; SameSite=Lax'));
+assert.equal((await account.DELETE(new Request(root+'/api/account',{method:'DELETE',headers:{cookie}}))).status,403,'A cookie alone does not authorize a browser mutation');
+assert.equal((await account.GET(new Request(root+'/api/account',{headers:{cookie}}))).status,200,'Rejected logout leaves the session intact');
 assert.notEqual(sql.prepare('SELECT password_hash FROM creator_users').get().password_hash,'a-secure-test-password');
 assert.equal((await account.POST(accountReq('login','a@example.test','wrong-password'))).status,401);
 assert.equal((await account.POST(accountReq('login','a@example.test','a-secure-test-password'))).status,200);
