@@ -38,7 +38,7 @@ p {line-height:1.65}
 .qm-offerings {max-width:1280px;margin:0 auto;padding:0 48px 78px}
 .qm-offerings-heading {max-width:760px;margin-bottom:28px}
 .qm-offerings-heading h2 {font-size:clamp(28px,3vw,42px);line-height:1.18;letter-spacing:-.025em;color:#243454;margin:18px 0 0}
-.qm-offerings-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.qm-offerings-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 .qm-offering {display:flex;gap:17px;background:#fff;border:2px solid #c8bbef;border-radius:24px;padding:25px;min-width:0;min-height:210px;box-shadow:0 8px 0 #45318212;transition:transform .2s,border-color .2s,box-shadow .2s}
 .qm-offering:hover {transform:translateY(-4px);border-color:#6940c9;box-shadow:0 12px 0 #45318219}
 .qm-offering:nth-child(2) {background:#e7f8ef;border-color:#9edbbb}
