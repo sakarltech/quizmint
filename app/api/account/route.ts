@@ -9,7 +9,7 @@ export async function POST(req:Request){if(!sameOrigin(req))return response({err
  const store=await accountStore();let user=await store.findByEmail(email);
  if(x.action==='register'){if(x.password.length<12)throw Error('Use a password of at least 12 characters.');if(user)return response({error:'Unable to create account. Try signing in or use another email.'},400);
  const salt=crypto.randomUUID(),id=crypto.randomUUID(),hash=await passwordHash(x.password,salt);if(!await store.createUser({id,email,passwordHash:hash,salt,created:new Date().toISOString()}))return response({error:'Unable to create account. Try signing in or use another email.'},400);user={id,email,password_hash:hash,salt};
- }else{const hash=await passwordHash(x.password,user?.salt||'unregistered-account');if(!user||!equal(hash,user.password_hash))return response({error:'Email or password is incorrect.'},401);}
+ }else{const hash=await passwordHash(x.password,user?.salt||'unregistered-account');if(!user||user.suspended_at||!equal(hash,user.password_hash))return response({error:'Email or password is incorrect.'},401);}
  const token=crypto.randomUUID().replaceAll('-','')+crypto.randomUUID().replaceAll('-','');
  await store.removeExpiredSessions();
  if(!await store.issueSession({tokenHash:await digest(token),userId:user.id,passwordHash:user.password_hash,salt:user.salt}))return response({error:'Email or password is incorrect.'},401);

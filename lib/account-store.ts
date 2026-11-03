@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { db } from './server';
 
-export type StoredUser = { id: string; email: string; password_hash: string; salt: string; created?: string };
+export type StoredUser = { id: string; email: string; password_hash: string; salt: string; created?: string; suspended_at?: number | null };
 type Identity = { id: string; email: string };
 type NewUser = { id: string; email: string; passwordHash: string; salt: string; created: string };
 type NewSession = { tokenHash: string; userId: string; passwordHash: string; salt: string; now?: number };

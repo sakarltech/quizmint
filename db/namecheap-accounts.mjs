@@ -5,7 +5,7 @@ import { transaction } from './namecheap.mjs';
 export function accountRepository(pool) {
   return {
     async findByEmail(email) {
-      const [rows] = await pool.execute('SELECT id,email,password_hash,salt,created FROM creator_users WHERE email=?', [email]);
+      const [rows] = await pool.execute('SELECT id,email,password_hash,salt,created,suspended_at FROM creator_users WHERE email=?', [email]);
       return rows[0] ?? null;
     },
     async createUser({ id, email, passwordHash, salt, created }) {
@@ -19,7 +19,7 @@ export function accountRepository(pool) {
       }
     },
     async findSession(tokenHash, now = Date.now()) {
-      const [rows] = await pool.execute('SELECT u.id,u.email FROM creator_sessions s JOIN creator_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires>?', [tokenHash, now]);
+      const [rows] = await pool.execute('SELECT u.id,u.email FROM creator_sessions s JOIN creator_users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires>? AND u.suspended_at IS NULL', [tokenHash, now]);
       return rows[0] ?? null;
     },
     async issueSession({ tokenHash, userId, passwordHash, salt, now = Date.now() }) {

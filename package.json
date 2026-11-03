@@ -53,7 +53,8 @@
     "test:namecheap-runtime": "node tests/namecheap-runtime.mjs && node --test tests/namecheap-env.cjs tests/namecheap-request.cjs tests/namecheap-startup.cjs",
     "admin:setup:namecheap": "node --env-file-if-exists=.env.namecheap scripts/setup-namecheap-admin.mjs",
     "test:namecheap-built": "node scripts/test-namecheap-built.mjs",
-    "admin:check:namecheap": "node --env-file-if-exists=.env.namecheap scripts/check-namecheap-admin.mjs"
+    "admin:check:namecheap": "node --env-file-if-exists=.env.namecheap scripts/check-namecheap-admin.mjs",
+    "admin:migrate-users:namecheap": "node --env-file-if-exists=.env.namecheap scripts/migrate-namecheap-admin-users.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
