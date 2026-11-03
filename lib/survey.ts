@@ -1,10 +1,13 @@
 export type SurveyQuestion = { prompt:string; type:'single'|'multiple'|'short'|'long'|'rating'; required:boolean; options:string[]; branches:(number|null)[] };
-export type Survey = {title:string; description:string; closingMessage:string; identifierLabel:string; questions:SurveyQuestion[]};
+export type Survey = {title:string; description:string; closingMessage:string; identifierLabel:string; questions:SurveyQuestion[]; logo?:string; cover?:string; accent?:string};
 const text=(value:unknown,max:number,label:string,required=false)=>{if(typeof value!=='string'||value.length>max||(required&&!value.trim()))throw Error(`Check ${label}.`);return value.trim();};
 export function validateSurvey(input:unknown):Survey {
  if(!input||typeof input!=='object')throw Error('Invalid survey.');
  const x=input as Record<string,unknown>;
  const title=text(x.title,120,'the title',true),description=text(x.description,1000,'the description'),closingMessage=text(x.closingMessage,1000,'the closing message'),identifierLabel=text(x.identifierLabel,100,'the identifier label');
+ const image=(value:unknown)=>{if(value===undefined||value==='')return '';if(typeof value!=='string'||value.length>45000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value))throw Error('Invalid survey image.');return value;};
+ const logo=image(x.logo),cover=image(x.cover),accent=x.accent===undefined||x.accent===''?'#356b55':text(x.accent,7,'the accent colour');
+ if(!/^#[0-9a-fA-F]{6}$/.test(accent))throw Error('Choose a valid accent colour.');
  if(!Array.isArray(x.questions)||x.questions.length<1||x.questions.length>50)throw Error('Include 1–50 questions.');
  const questionCount=x.questions.length;
  const questions=x.questions.map((raw:unknown,i:number):SurveyQuestion=>{
@@ -23,7 +26,7 @@ export function validateSurvey(input:unknown):Survey {
   }
   return {prompt,type,required:q.required,options,branches};
  });
- return {title,description,closingMessage,identifierLabel,questions};
+ return {title,description,closingMessage,identifierLabel,questions,logo,cover,accent};
 }
 export function validateSurveyResponse(survey:Survey,identifier:unknown,values:unknown){
  if(survey.identifierLabel)text(identifier,254,'the required identifier',true);
