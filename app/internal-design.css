@@ -46,9 +46,10 @@
 
 /* A consistent home destination on every internal route. */
 .qm-home-return{position:sticky;top:0;z-index:41;height:52px;display:flex;align-items:center;padding:4px 32px;background:#fff;border-bottom:1px solid #e2ebe6}
-.qm-home-return a{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px;color:#4b6358;font-size:14px;font-weight:700;border-radius:8px}
-.qm-home-return a:hover{color:#116b55;background:#eaf7f2}
-.qm-home-return a svg{flex:none}
+.qm-home-return a,.qm-home-return button{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px;color:#4b6358;font-size:14px;font-weight:700;border-radius:8px}
+.qm-home-return button{border:0;background:transparent;cursor:pointer}
+.qm-home-return a:hover,.qm-home-return button:hover{color:#116b55;background:#eaf7f2}
+.qm-home-return svg{flex:none}
 .qm-workspace .header{top:52px}
 .qm-workspace .qm-sidebar,.qm-workspace .qm-sidebar-backdrop{top:128px}
 .qm-workspace .qm-sidebar-toggle{top:68px}
