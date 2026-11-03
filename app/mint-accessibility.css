@@ -7,6 +7,7 @@ h1,h2,h3,h4,strong,b {font-weight:700}
 p {line-height:1.65}
 .serif,.qm-hero h1 span {font-family:inherit;font-style:normal;font-weight:800}
 .brand {font-family:Arial,Helvetica,sans-serif}
+.qm-nav .brand {gap:2px}
 ::selection {background:#b8f0d6;color:#173b30}
 :is(a,button,input,textarea,select,summary):focus-visible {outline:3px solid var(--mint-dark);outline-offset:4px}
 .pill {font-size:13px;letter-spacing:.02em}
