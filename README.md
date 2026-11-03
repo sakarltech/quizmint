@@ -132,16 +132,16 @@ The portable build runs Vinext directly without a host `timeout` command. The ma
 - `/login`: creator registration and sign-in with email and password (minimum 12 characters). Creator dashboards at `/teacher` only expose that creator's quizzes and results.
 - `/q/:id`: no student account or OpenAI sign-in; email is required and stored alongside the score. Emails are self-reported, not verified.
 - Passwords are salted and hashed with PBKDF2 SHA-256 with 100,000 iterations. Session tokens are random, stored hashed, and delivered in Secure, HttpOnly, SameSite cookies, expire after seven days and are revoked on sign-out. Login and registration attempts are rate limited by IP and email.
-- Password recovery and email verification are not part of this change.
+- Password recovery is available when recovery email is configured. Creator email addresses are not verified.
 - Run `node tests/api.mjs` and `node node_modules/typescript/bin/tsc --noEmit` to check authorization, ownership, account sessions, rate limits and quiz scoring.
 
 ## AI question studio and billing
 
 Creators and the OpenAI-authenticated administrator have separate server-side wallets.
-The first 20 successfully generated questions are a lifetime free allowance. One credit
+Creators receive 20 free generated questions per calendar month, resetting at midnight UK time on the first of the month. Unused free questions do not roll over. One credit
 covers a complete question, correct answer and explanation. Manual questions are free.
 Successful generation uses credits even when a quiz is not published. Failed jobs return
-their reservation; timed-out jobs recover on the next generation request after 4 minutes.
+their reservation; timed-out jobs recover on the next generation request after the six-minute reservation expires.
 Retrying the same successful request ID returns the saved result without a second charge.
 The latest AI draft can be restored from the editor. Source uploads are not persisted;
 generated drafts are stored in D1. AI provider retention policies apply separately.
@@ -168,7 +168,7 @@ Enable Stripe's customer billing portal so customers can cancel and manage payme
 The success redirect never grants an entitlement; only a verified, idempotent webhook does.
 Payments remain disabled until both AI and payment secrets are configured.
 
-Launch prices (GBP): 50 credits £2.99; 200 £7.99; 500 £14.99; unlimited monthly £10.99.
+Prices (GBP): 50 credits £2.99; 200 £7.99; 500 £14.99; unlimited monthly £9.99 or annual £95.90.
 Prices are generated server-side; client amounts are ignored. The stated total is inclusive
 of any tax the business owes: tax registration/accounting must be configured with the
 merchant before live launch. This implementation does not add automatic tax on top.
@@ -181,7 +181,7 @@ added before broad commercial marketing; the existing email/password sign-up doe
 verify mailbox ownership. Monitor generation failures and provider cost per account,
 and reconcile Stripe entitlements during operational incident recovery.
 
-Administrator AI generation is free and never consumes trial or purchased credits. Creator accounts retain their 20-question lifetime trial, followed by paid credits or the £10.99 monthly plan.
+Administrator AI generation is free and never consumes free or purchased credits. Creator accounts receive 20 free questions each month, and can purchase credits or an unlimited subscription.
 
 Long text, Word documents and PowerPoint decks are split at paragraph boundaries into roughly 20,000-character sections. Four bounded workers extract learning notes from every section before generating the requested quiz across those notes. Nothing is silently truncated. Short sources and PDFs use the direct generation path. Questions are validated and duplicate prompts rejected; any failed section or generation refunds the original question reservation. Long-source processing may take several minutes; files are not persisted.
 
