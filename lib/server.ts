@@ -1,7 +1,8 @@
 import { env } from 'cloudflare:workers';
 export function db() {if(!env.DB) throw new Error('Database unavailable'); return env.DB;}
 export function response(data:unknown,status=200) {return Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
-export function sameOrigin(req:Request) {const origin=req.headers.get('origin');const trusted=(env as any).QUIZMINT_RUNTIME==='namecheap'&&(env as any).APP_URL;return !origin || origin===(trusted?new URL(trusted).origin:new URL(req.url).origin);}
+import {sameOrigin as checkOrigin} from './request-security.mjs';
+export function sameOrigin(req:Request) {const trusted=(env as any).QUIZMINT_RUNTIME==='namecheap'&&(env as any).APP_URL;return checkOrigin(req,trusted||undefined);}
 export async function administrator(req:Request):Promise<{id:string;email:string}|null> {
  if((env as any).QUIZMINT_RUNTIME==='namecheap'){
   // Pin an explicitly provisioned account id. Public registration with a chosen
