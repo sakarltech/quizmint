@@ -6,4 +6,4 @@ export async function admin(req:Request) {
  const email=(env as any).QUIZ_TEACHER_EMAIL;
  return Boolean(email && req.headers.get('oai-authenticated-user-id') && req.headers.get('oai-authenticated-user-email')?.toLowerCase()===email.toLowerCase());
 }
-export async function body(req:Request) {const raw=await req.text();if(raw.length>120000)throw new Error('Request too large.');return JSON.parse(raw);}
+export async function body(req:Request,limit=120000) {const raw=await req.text();if(raw.length>limit)throw new Error('Request too large.');return JSON.parse(raw);}
