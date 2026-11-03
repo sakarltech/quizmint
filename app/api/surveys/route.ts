@@ -9,5 +9,5 @@ export async function GET(req:Request){
 }
 export async function POST(req:Request){
  if(!sameOrigin(req))return response({error:'Invalid origin.'},403);const user=await creator(req.headers.get('cookie'));if(!user)return response({error:'Sign in required.'},401);
- try{const survey=validateSurvey(await body(req)),id=crypto.randomUUID().replaceAll('-',''),now=Date.now();await db().prepare('INSERT INTO surveys(id,owner_id,survey,created,updated) VALUES(?,?,?,?,?)').bind(id,user.id,JSON.stringify(survey),now,now).run();return response({id},201);}catch(e){return response({error:e instanceof Error?e.message:'Unable to save survey.'},400);}
+ try{const survey=validateSurvey(await body(req,500000)),id=crypto.randomUUID().replaceAll('-',''),now=Date.now();await db().prepare('INSERT INTO surveys(id,owner_id,survey,created,updated) VALUES(?,?,?,?,?)').bind(id,user.id,JSON.stringify(survey),now,now).run();return response({id},201);}catch(e){return response({error:e instanceof Error?e.message:'Unable to save survey.'},400);}
 }

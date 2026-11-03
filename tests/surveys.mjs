@@ -25,6 +25,11 @@ const retryId=crypto.randomUUID(),retry={responseId:retryId,identifier:'',answer
 const stored=sql.prepare('SELECT * FROM survey_responses').get();assert.equal(stored.identifier,null);assert.deepEqual(JSON.parse(stored.seen),[0,2]);
 assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{survey:{...survey,questions:[{...survey.questions[0],prompt:'Changed'},...survey.questions.slice(1)]}},{cookie:owner}),params)).status,409,'Questions lock after response');
 assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{survey:{...survey,title:'Updated'}},{cookie:owner}),params)).status,200);
+const branded={...survey,title:'Updated',logo:'data:image/png;base64,aGVsbG8=',cover:'data:image/webp;base64,aGVsbG8=',accent:'#123456'};
+assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{survey:branded},{cookie:owner}),params)).status,200,'Branding remains editable after responses');
+const publicSurvey=await (await item.GET(req('/api/surveys/'+id),params)).json();assert.equal(publicSurvey.survey.logo,branded.logo);assert.equal(publicSurvey.survey.cover,branded.cover);assert.equal(publicSurvey.survey.accent,branded.accent);
+assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{survey:{...branded,logo:'data:image/svg+xml;base64,aGVsbG8='}},{cookie:owner}),params)).status,400,'Unsafe image formats are rejected');
+assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{survey:{...branded,accent:'red'}},{cookie:owner}),params)).status,400,'Invalid colours are rejected');
 assert.equal((await item.PATCH(req('/api/surveys/'+id,'PATCH',{active:false},{cookie:owner}),params)).status,200);assert.equal((await submit({identifier:'',answers:[1,null,null]})).status,410);
 assert.equal((await item.DELETE(req('/api/surveys/'+id,'DELETE',null,{cookie:other}),params)).status,404);
 assert.equal((await item.DELETE(req('/api/surveys/'+id,'DELETE',null,{cookie:owner}),params)).status,200);assert.equal(sql.prepare('SELECT COUNT(*) n FROM survey_responses').get().n,0);
