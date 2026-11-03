@@ -2,6 +2,8 @@
 
 Creators can create surveys under `/surveys`. Guest respondents use `/s/<id>` without an account. Surveys are anonymous unless the creator specifies a required, self-reported identifier label. A link can be forwarded and repeat submissions are allowed.
 
+Creators can personalise a survey with a logo, cover photo and accent colour. PNG, JPEG and WebP uploads up to 10 MB are resized in the browser. Branding can be changed after responses have been received and appears in the preview and on the respondent link.
+
 Questions support single choice, multiple choice, short text, long text, and a 1–5 rating. Questions are required by default. Single-choice options can continue to the next question, jump forward, or end the survey. Optional unanswered branching questions continue to the next question. The server validates the submitted path and only requires questions shown on that path. Results distinguish skipped and unseen questions.
 
 Questions and identifier settings lock after the first response. Title, description, and closing message remain editable. Duplicate the survey to revise its structure. Creators can close, reopen, or delete surveys. Deletion permanently removes their responses.
