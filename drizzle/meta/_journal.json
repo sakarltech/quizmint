@@ -85,6 +85,13 @@
       "when": 1791792952369,
       "tag": "0011_rebuild_public_quiz_search",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791792952370,
+      "tag": "0012_surveys",
+      "breakpoints": true
     }
   ]
 }

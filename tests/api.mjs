@@ -250,3 +250,12 @@ assert.deepEqual(sql.prepare('SELECT free_remaining,credits FROM ai_wallets WHER
 assert.equal((await importApi.POST(importRequest(bothHeaders,'/api/quiz-import?admin=1'))).status,200);
 assert.equal((await importApi.POST(importRequest({cookie:diagramCookie},'/api/quiz-import','lesson notes','quiz.doc'))).status,400);
 console.log('Passed: import creator/admin authorization, origin protection, answer preservation, unsupported format errors and no AI credit charges.');
+
+// Survey generation shares the wallet while keeping quiz draft restoration separate.
+const surveyRegistration=await account.POST(accountReq('register','survey-ai@example.test','survey-ai-password-123'));const surveyCookie=surveyRegistration.headers.get('set-cookie').split(';')[0];
+let surveyPrompt='';globalThis.fetch=async(_url,options)=>{const payload=JSON.parse(options.body);surveyPrompt=payload.instructions;return Response.json({usage:{input_tokens:50,output_tokens:50},output:[{content:[{type:'output_text',text:JSON.stringify({...draft,questions:[{...draft.questions[0],prompt:'How useful was the lesson?'},{...draft.questions[0],prompt:'How clear was the lesson?'}]})}]}]});};
+const surveyRequestId=crypto.randomUUID();function surveyGeneration(){const form=new FormData();form.set('requestId',surveyRequestId);form.set('sourceType','topic');form.set('source','Feedback about a training lesson');form.set('count','2');form.set('kind','survey');return new Request(root+'/api/ai/generate',{method:'POST',headers:{Origin:root,cookie:surveyCookie},body:form});}
+assert.equal((await generate.POST(surveyGeneration())).status,200);assert.match(surveyPrompt,/no correct answers/i);assert.equal((await generate.POST(surveyGeneration())).status,200,'Survey generation retries are idempotent');
+const surveyBalance=await (await ai.GET(new Request(root+'/api/ai',{headers:{cookie:surveyCookie}}))).json();assert.equal(surveyBalance.freeRemaining,18,'One free credit per generated survey question');
+const surveyLatest=await (await ai.GET(new Request(root+'/api/ai?latest',{headers:{cookie:surveyCookie}}))).json();assert.equal(surveyLatest.quiz,null,'Survey drafts cannot be restored as quizzes');globalThis.fetch=actualFetch;
+console.log('Passed: survey AI prompting, credit charging, replay and quiz draft isolation.');

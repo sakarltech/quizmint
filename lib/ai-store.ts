@@ -18,7 +18,7 @@ const workerStore: AiStore = {
     return db().prepare('SELECT * FROM ai_wallets WHERE user_id=?').bind(userId).first();
   },
   job(id, userId) { return db().prepare('SELECT * FROM ai_jobs WHERE id=? AND user_id=?').bind(id, userId).first(); },
-  latest(userId) { return db().prepare("SELECT result FROM ai_jobs WHERE user_id=? AND status='completed' ORDER BY created DESC LIMIT 1").bind(userId).first(); },
+  latest(userId) { return db().prepare("SELECT result FROM ai_jobs WHERE user_id=? AND status='completed' AND json_extract(result,'$._draftKind') IS NULL ORDER BY created DESC LIMIT 1").bind(userId).first(); },
   async reserve({userId, jobId, free, paid, periodStart, now}) {
     await db().batch([db().prepare('UPDATE ai_wallets SET free_remaining=free_remaining-?,credits=credits-?,lock_id=?,locked_until=? WHERE user_id=? AND locked_until<=? AND free_remaining>=? AND credits>=? AND free_period_start=?').bind(free, paid, jobId, now + 360000, userId, now, free, paid, periodStart), db().prepare("INSERT INTO ai_jobs(id,user_id,free,paid,status,created) SELECT ?,?,?,?,'running',? WHERE EXISTS(SELECT 1 FROM ai_wallets WHERE user_id=? AND lock_id=?)").bind(jobId, userId, free, paid, now, userId, jobId)]);
     const row = await db().prepare('SELECT lock_id FROM ai_wallets WHERE user_id=?').bind(userId).first<{lock_id: string | null}>();

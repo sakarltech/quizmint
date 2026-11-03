@@ -19,4 +19,4 @@ export async function administrator(req:Request):Promise<{id:string;email:string
 }
 export async function admin(req:Request){return !!await administrator(req);}
 export function clientIp(req:Request){return (env as any).QUIZMINT_RUNTIME==='namecheap'?(req.headers.get('x-quizmint-client-ip')||'unknown'):(req.headers.get('cf-connecting-ip')||'unknown');}
-export async function body(req:Request) {const raw=await req.text();if(raw.length>120000)throw new Error('Request too large.');return JSON.parse(raw);}
+export async function body(req:Request,limit=120000) {const raw=await req.text();if(raw.length>limit)throw new Error('Request too large.');return JSON.parse(raw);}

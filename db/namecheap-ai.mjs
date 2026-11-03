@@ -18,7 +18,7 @@ export function aiRepository(pool) {
       return rows[0] ?? null;
     },
     async latest(userId) {
-      const [rows] = await pool.execute("SELECT result FROM ai_jobs WHERE user_id=? AND status='completed' ORDER BY created DESC,id DESC LIMIT 1", [userId]);
+      const [rows] = await pool.execute("SELECT result FROM ai_jobs WHERE user_id=? AND status='completed' AND JSON_EXTRACT(result,'$._draftKind') IS NULL ORDER BY created DESC,id DESC LIMIT 1", [userId]);
       return rows[0] ?? null;
     },
     async reserve({ userId, jobId, free, paid, periodStart, now }) {

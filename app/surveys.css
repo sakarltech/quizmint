@@ -1,0 +1,5 @@
+.survey-form fieldset label {display:flex;align-items:center;gap:10px;margin:12px 0;font-size:1rem}
+.survey-form fieldset input[type=radio],.survey-form fieldset input[type=checkbox] {width:auto;margin:0;flex:none}
+.survey-form fieldset legend {font-size:1.1rem;font-weight:700;padding:0 8px}
+.survey-form fieldset>input,.survey-form fieldset>textarea {margin-top:16px}
+.dashboard fieldset input[type=checkbox] {display:inline-block;width:auto;margin:0 8px 0 0}
