@@ -1,51 +1,997 @@
-'use client';
-import {answerOptions,toggleAnswer} from '../../lib/quiz';
+"use client";
+import { answerOptions, toggleAnswer } from "../../lib/quiz";
 
-import Brand from '../../components/brand';
-import {useEffect,useState} from 'react';
-import {BookOpen,Plus,ArrowUpRight,Copy,BarChart3,Check,Trash2,Download,LogOut,ChevronLeft,LockKeyhole,Sparkles,FileUp,Trophy} from 'lucide-react';
-import {sample} from '../../lib/sample';
-import AIBuilder from './ai-builder';
-import QuestionVisualTools from './question-visual-tools';
-import DocumentImport from './document-import';
+import Brand from "../../components/brand";
+import { useEffect, useState } from "react";
+import {
+  BookOpen,
+  Plus,
+  ArrowUpRight,
+  Copy,
+  BarChart3,
+  Check,
+  Trash2,
+  Download,
+  LogOut,
+  ChevronLeft,
+  LockKeyhole,
+  Sparkles,
+  FileUp,
+  Trophy,
+  ClipboardList,
+} from "lucide-react";
+import { sample } from "../../lib/sample";
+import AIBuilder from "./ai-builder";
+import QuestionVisualTools from "./question-visual-tools";
+import DocumentImport from "./document-import";
 
-const blankQuestion=()=>({prompt:'',options:['','','',''],correct:0,explanation:''});
-const emptyQuiz=()=>({title:'',subject:'',description:'',timeLimitMinutes:0,questions:[blankQuestion()]});
-type View='list'|'create'|'edit'|'results';
-type CreationMode='manual'|'ai'|null;
+const blankQuestion = () => ({
+  prompt: "",
+  options: ["", "", "", ""],
+  correct: 0,
+  explanation: "",
+});
+const emptyQuiz = () => ({
+  title: "",
+  subject: "",
+  description: "",
+  timeLimitMinutes: 0,
+  questions: [blankQuestion()],
+});
+type View = "list" | "create" | "edit" | "results";
+type CreationMode = "manual" | "ai" | null;
 
-export default function Teacher({adminMode=false}:{adminMode?:boolean}){
- const [ready,setReady]=useState(false),[quizzes,setQuizzes]=useState<any[]>([]),[attempts,setAttempts]=useState<any[]>([]);
- const [view,setView]=useState<View>('list'),[creationMode,setCreationMode]=useState<CreationMode>(null),[selected,setSelected]=useState<any>(null),[draft,setDraft]=useState<any>(emptyQuiz());
- const [message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[showImport,setShowImport]=useState(false),[showAI,setShowAI]=useState(false),[imageUploads,setImageUploads]=useState(0),[creatorProfile,setCreatorProfile]=useState<any>(null);
- useEffect(()=>{login();const studio=new URLSearchParams(location.search).get('studio');if(studio==='manual'||studio==='ai')openCreation(studio);},[]);
- useEffect(()=>{if(ready&&showAI)document.getElementById('ai-builder')?.scrollIntoView({behavior:'smooth',block:'start'});},[ready,showAI]);
- async function api(path='/api/teacher',options:any={}){const r=await fetch(adminMode?path.replace('/api/teacher','/api/admin'):path,{...options,headers:{'Content-Type':'application/json',...options.headers}});const x:any=await r.json();if(!r.ok)throw Error(x.error||'Something went wrong. Please retry.');return x;}
- async function login(){setBusy(true);setError('');try{const x=await api();setQuizzes(x.quizzes);setReady(true);if(!adminMode){const r=await fetch('/api/profile');if(r.ok)setCreatorProfile(await r.json());}}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
- async function action(fn:()=>Promise<void>){setBusy(true);setError('');setMessage('');try{await fn();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
- function openCreation(mode?:'manual'|'ai'){setDraft(emptyQuiz());setCreationMode(mode||null);setShowAI(false);setShowImport(false);setError('');setMessage('');setView('create');}
- function updateQuestion(i:number,field:string,value:any){setDraft((d:any)=>({...d,questions:d.questions.map((q:any,j:number)=>i===j?{...q,[field]:value}:q)}));}
- async function copy(q:any){const link=location.origin+'/q/'+q.id;try{await navigator.clipboard.writeText(link);setMessage('Student link copied.');}catch{setMessage('Copy this student link: '+link);}}
- async function results(q:any){await action(async()=>{const x=await api('/api/teacher?results='+q.id);setSelected(q);setAttempts(x.attempts);setView('results');});}
- function csv(){const esc=(x:any)=>'"'+String(x).replace(/^[=+@\-\t\r]/,"'").replaceAll('"','""')+'"';const rows=[['Student email','Score','Total','Percentage','Submitted'],...attempts.map(a=>[a.student,a.score,a.total,Math.round(a.score/a.total*100)+'%',a.created])];const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(esc).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='quiz-results.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- const useAIDraft=(quiz:any)=>{setDraft((current:any)=>({...current,subject:current.subject||quiz.subject||'',questions:quiz.questions}));setShowAI(false);setMessage('AI questions imported. Review and edit every answer before saving.');};
- const leave=()=>{if(confirm('Leave this draft? Unsaved changes will be lost.'))setView('list');};
- return <><header className="header"><Brand/><div className="row">{adminMode&&<a className="text-link" href="/admin/health">Health & costs</a>}{!adminMode&&<a className="text-link" href="/profile">{creatorProfile?.profile?.name||'My profile'}</a>}<a className="text-link" href={adminMode?'/arena?admin=1':'/arena'}>Arena</a><span className="pill">{adminMode?'ADMIN SPACE':'CREATOR SPACE'}</span>{ready&&(adminMode?<a className="icon-button" aria-label="Sign out" href="/signout-with-chatgpt?return_to=/" target="_top"><LogOut size={19}/></a>:<button className="icon-button" aria-label="Sign out" onClick={()=>action(async()=>{const r=await fetch('/api/account',{method:'DELETE'});if(!r.ok)throw Error('Unable to sign out.');window.location.assign('/');})}><LogOut size={19}/></button>)}</div></header><main className="dashboard">
- {error&&<div className="alert" role="alert">{error}</div>}{message&&<div className="notice" role="status">{message}</div>}
- {!ready?<div className="login-card"><span className="feature-icon"><LockKeyhole/></span><h1>Your teaching space.</h1><p className="lead">{busy?'Loading your quiz library…':'Unable to load the dashboard. Please retry.'}</p><button className="btn" disabled={busy} onClick={login}>Refresh dashboard</button></div>:view==='list'?<>
- <div className="page-heading"><div><span className="eyebrow">YOUR CLASSROOM, AT A GLANCE</span><h1>What will you make today?</h1><p className="muted">A little insight into what your students understand.</p></div><button className="btn" onClick={()=>openCreation()}><Plus size={18}/> Create quiz</button></div>
- {!adminMode&&creatorProfile&&!creatorProfile.completed&&<div className="notice"><strong>Complete your creator profile.</strong> <a className="text-link" href="/profile">Set up my profile →</a></div>}
- <section className="creator-shortcuts" aria-label="Quick actions"><button type="button" className="shortcut-card shortcut-manual" onClick={()=>openCreation('manual')}><span className="shortcut-icon"><Plus size={24}/></span><span><strong>Create manually</strong><small>Start with a blank quiz</small></span><ArrowUpRight size={21}/></button><button type="button" className="shortcut-card shortcut-ai" onClick={()=>openCreation('ai')}><span className="shortcut-icon"><Sparkles size={24}/></span><span><strong>Draft with AI</strong><small>Turn a topic or lesson into questions</small></span><ArrowUpRight size={21}/></button><button type="button" className="shortcut-card shortcut-import" onClick={()=>{setDraft(emptyQuiz());setShowImport(true);setView('edit');}}><span className="shortcut-icon"><FileUp size={24}/></span><span><strong>Import questions</strong><small>Import Word, Excel, slides or PDF</small></span><ArrowUpRight size={21}/></button><a className="shortcut-card shortcut-arena" href={adminMode?'/arena?admin=1':'/arena'}><span className="shortcut-icon"><Trophy size={24}/></span><span><strong>Host an Arena</strong><small>Make the classroom a live event</small></span><ArrowUpRight size={21}/></a></section>
- {!quizzes.length?<div className="empty-state"><span className="feature-icon"><BookOpen/></span><h2>Your next lightbulb moment starts here.</h2><p>Create a quiz from scratch or use our five-question sample to explore.</p><button className="btn" onClick={()=>{setDraft({...sample,questions:sample.questions.map(q=>({...q,options:[...q.options]}))});setView('edit');}}>Start with a sample <ArrowUpRight size={17}/></button></div>:<><div className="row between section-title"><h2>Your quiz library <span className="count">{quizzes.length}</span></h2><button className="text-link" disabled={busy} onClick={login}>Refresh results ↻</button></div><div className="quiz-grid">{quizzes.map(q=><article className="quiz-library-card" key={q.id}><div className="row between"><span className="pill">{q.subject||'GENERAL'}</span><span className={'status '+(!q.active?'closed':'')}>{q.active?'Open':'Closed'}</span></div><h2>{q.title}</h2><p className="muted clamp">{q.description}</p><div className="card-metrics"><span>{q.questions.length} questions</span><span>{q.submissions} submissions</span></div><div className="row"><button className="btn small" onClick={()=>copy(q)}><Copy size={15}/> Copy student link</button><a className="btn small outline" href={'/arena?quiz='+q.id+(adminMode?'&admin=1':'')}>Host live</a><button className="btn small outline" disabled={busy} onClick={()=>results(q)}><BarChart3 size={16}/> Results</button></div><div className="card-bottom"><a className="text-link" href={'/q/'+q.id} target="_blank" rel="noreferrer">Preview quiz ↗</a><button className="text-link" disabled={busy} onClick={()=>action(async()=>{await api('/api/teacher',{method:'PATCH',body:JSON.stringify({id:q.id,active:!q.active})});await login();})}>{q.active?'Close quiz':'Reopen quiz'}</button><button className="icon-button danger" aria-label={'Delete '+q.title} disabled={busy} onClick={()=>{if(confirm('Delete this quiz, saved learner progress and all its student results? This cannot be undone.'))action(async()=>{await api('/api/teacher?id='+q.id,{method:'DELETE'});await login();});}}><Trash2 size={16}/></button></div></article>)}</div></>}
- </>:view==='create'?<>
- <button className="text-link" onClick={()=>setView('list')}><ChevronLeft size={16}/> Back to library</button><div className="page-heading"><div><span className="eyebrow">CREATE A QUIZ</span><h1>{creationMode?'Start with the essentials.':'How would you like to create?'}</h1><p className="muted">{creationMode?'Name the quiz and tell learners what to expect.':'Choose a path. You can review every question before sharing.'}</p></div></div>
- {!creationMode?<section className="creation-paths"><button type="button" className="creation-path" onClick={()=>setCreationMode('manual')}><Plus size={28}/><strong>Manual creation</strong><small>Write your title and instructions, then go straight to the quiz editor. Add and refine questions at your own pace.</small><span className="text-link">Create manually →</span></button><button type="button" className="creation-path" onClick={()=>setCreationMode('ai')}><Sparkles size={28}/><strong>Assisted creation</strong><small>Set the quiz title and instructions first. Then use AI to draft questions from a topic, text, document or recording.</small><span className="text-link">Create with AI →</span></button></section>:<form className="creation-setup" onSubmit={e=>{e.preventDefault();setShowAI(creationMode==='ai');setShowImport(false);setView('edit');}}><section className="editor-card"><span className="pill creation-mode">{creationMode==='ai'?'ASSISTED CREATION':'MANUAL CREATION'}</span><h2>{creationMode==='ai'?'What is this AI draft for?':'What will learners work on?'}</h2><label>Quiz title<input required maxLength={120} autoFocus placeholder="e.g. Communication essentials" value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label><label>Student instructions / description<textarea required maxLength={1000} rows={4} placeholder="e.g. Check your understanding of the key ideas before the workshop." value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label><div className="row"><button type="button" className="btn outline" onClick={()=>setCreationMode(null)}>Choose another path</button><button className="btn">{creationMode==='ai'?'Continue to AI questions':'Continue to quiz editor'} <ArrowUpRight size={17}/></button></div></section></form>}
- </>:view==='edit'?<>
- <button className="text-link" onClick={leave}><ChevronLeft size={16}/> Back to library</button><div className="page-heading"><div><span className="eyebrow">BUILD A LEARNING MOMENT</span><h1>{showAI?'Draft your questions with AI.':'Create your quiz.'}</h1><p className="muted">{showAI?'Review the generated questions below before bringing them into your editor.':'Add questions, answers and explanations. Learners can take a timed challenge or an untimed quiz.'}</p></div><button className="btn outline" disabled={imageUploads>0} aria-expanded={showImport} onClick={()=>setShowImport(!showImport)}>Import questions</button></div>
- {showAI&&<div id="ai-builder" className="ai-builder-anchor"><AIBuilder adminMode={adminMode} quizTitle={draft.title} quizDescription={draft.description} onGenerated={useAIDraft}/></div>}
- {showImport&&<DocumentImport adminMode={adminMode} onBusy={running=>setImageUploads(n=>Math.max(0,n+(running?1:-1)))} onImported={quiz=>{if(imageUploads)return false;if((draft.title||draft.questions.some((q:any)=>q.prompt))&&!confirm('Replace your current draft with the imported quiz? Unsaved changes will be lost.'))return false;setDraft({...quiz,timeLimitMinutes:draft.timeLimitMinutes||0});setShowImport(false);setMessage('Document imported. Review every question before saving.');return true;}}/>}
- {!showAI&&<form onSubmit={e=>{e.preventDefault();if(imageUploads)return;action(async()=>{await api('/api/teacher',{method:'POST',body:JSON.stringify(draft)});await login();setView('list');setMessage('Quiz created. Copy its student link to share it with your class.');});}}><section className="editor-card"><div className="two-fields"><label>Quiz title<input required maxLength={120} value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label><label>Subject or module<input maxLength={80} placeholder="e.g. HCM4003" value={draft.subject} onChange={e=>setDraft({...draft,subject:e.target.value})}/></label></div><label>Student instructions<textarea required maxLength={1000} rows={3} value={draft.description} onChange={e=>setDraft({...draft,description:e.target.value})}/></label></section>{draft.questions.map((q:any,i:number)=><section className="editor-card" key={i}><div className="row between"><h2><span className="count">{i+1}</span> Question {i+1}</h2>{draft.questions.length>1&&<button type="button" className="icon-button danger" aria-label={'Remove question '+(i+1)} disabled={imageUploads>0} onClick={()=>setDraft({...draft,questions:draft.questions.filter((_:any,j:number)=>j!==i)})}><Trash2 size={17}/></button>}</div><label>Question<textarea required rows={2} maxLength={1500} value={q.prompt} placeholder="What would you like students to think about?" onChange={e=>updateQuestion(i,'prompt',e.target.value)}/></label><QuestionVisualTools question={q} adminMode={adminMode} onChange={(field,value)=>updateQuestion(i,field,value)} onBusy={running=>setImageUploads(n=>Math.max(0,n+(running?1:-1)))}/><label>Question type<select value={Array.isArray(q.correct)?'multiple':'single'} onChange={e=>updateQuestion(i,'correct',e.target.value==='multiple'?answerOptions(q.correct):answerOptions(q.correct)[0]??-1)}><option value="single">Single answer</option><option value="multiple">Select all that apply</option></select></label><p className="fine">{Array.isArray(q.correct)?'Mark at least two correct options.':'Choose one correct option.'}</p><div className="option-editor">{q.options.map((o:string,j:number)=><div className={'option-edit '+(answerOptions(q.correct).includes(j)?'correct':'')} key={j}>{Array.isArray(q.correct)?<input type="checkbox" className="quiz-choice-checkbox" aria-label={'Mark option '+'ABCD'[j]+' as correct'} checked={q.correct.includes(j)} onChange={()=>updateQuestion(i,'correct',toggleAnswer(q.correct,j))}/>:<button type="button" className="answer-key-toggle" aria-label={'Set option '+'ABCD'[j]+' as correct'} aria-pressed={q.correct===j} title={q.correct===j?'Correct answer':'Mark as correct'} onClick={()=>updateQuestion(i,'correct',j)}><Check size={18}/></button>}<span>{'ABCD'[j]}</span><input required aria-label={'Question '+(i+1)+' option '+'ABCD'[j]} maxLength={600} value={o} placeholder={'Option '+'ABCD'[j]} onChange={e=>updateQuestion(i,'options',q.options.map((v:string,k:number)=>k===j?e.target.value:v))}/></div>)}</div><label>Answer explanation<textarea required rows={3} maxLength={2000} placeholder="Explain the reasoning so students learn from their answer." value={q.explanation} onChange={e=>updateQuestion(i,'explanation',e.target.value)}/></label></section>)}<div className="row between editor-footer"><button className="btn outline" type="button" disabled={draft.questions.length>=50} onClick={()=>setDraft({...draft,questions:[...draft.questions,blankQuestion()]})}><Plus size={17}/> Add question</button><button className="btn" disabled={busy||imageUploads>0}>{imageUploads>0?'Preparing visuals…':busy?'Saving…':'Save & create student link'} <ArrowUpRight size={17}/></button></div></form>}
- </>:<>
- <button className="text-link" onClick={()=>setView('list')}><ChevronLeft size={16}/> Back to library</button><div className="page-heading"><div><span className="eyebrow">LEARNING, MADE VISIBLE</span><h1>{selected?.title}</h1><p className="muted">{attempts.length} submissions on this page.</p></div><button className="btn" disabled={!attempts.length} onClick={csv}><Download size={17}/> Export this page</button></div><div className="table-card"><table><thead><tr><th>Student email</th><th>Score</th><th>Percentage</th><th>Submitted</th></tr></thead><tbody>{attempts.map(a=><tr key={a.id}><td>{a.student}</td><td>{a.score} / {a.total}</td><td><span className="pill">{Math.round(a.score/a.total*100)}%</span></td><td>{new Date(a.created).toLocaleString('en-GB')}</td></tr>)}</tbody></table>{!attempts.length&&<div className="empty-state"><h2>No submissions yet.</h2><p>Share the student link to get started.</p><button className="btn" onClick={()=>copy(selected)}>Copy student link</button></div>}</div>
- </>}</main><footer>QuizMint <span>Built for teaching. Designed for learning.</span><a href="/terms">Terms of Use</a><a href="/privacy">Privacy Policy</a></footer></>;
+export default function Teacher({
+  adminMode = false,
+  creatorEmail,
+}: {
+  adminMode?: boolean;
+  creatorEmail?: string;
+}) {
+  const [ready, setReady] = useState(false),
+    [quizzes, setQuizzes] = useState<any[]>([]),
+    [attempts, setAttempts] = useState<any[]>([]);
+  const [view, setView] = useState<View>("list"),
+    [creationMode, setCreationMode] = useState<CreationMode>(null),
+    [selected, setSelected] = useState<any>(null),
+    [draft, setDraft] = useState<any>(emptyQuiz());
+  const [message, setMessage] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [showImport, setShowImport] = useState(false),
+    [showAI, setShowAI] = useState(false),
+    [imageUploads, setImageUploads] = useState(0),
+    [creatorProfile, setCreatorProfile] = useState<any>(null);
+  useEffect(() => {
+    login();
+    const studio = new URLSearchParams(location.search).get("studio");
+    if (studio === "manual" || studio === "ai") openCreation(studio);
+  }, []);
+  useEffect(() => {
+    if (ready && showAI)
+      document
+        .getElementById("ai-builder")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [ready, showAI]);
+  async function api(path = "/api/teacher", options: any = {}) {
+    const r = await fetch(
+      adminMode ? path.replace("/api/teacher", "/api/admin") : path,
+      {
+        ...options,
+        headers: { "Content-Type": "application/json", ...options.headers },
+      },
+    );
+    const x: any = await r.json();
+    if (!r.ok) throw Error(x.error || "Something went wrong. Please retry.");
+    return x;
+  }
+  async function login() {
+    setBusy(true);
+    setError("");
+    try {
+      const x = await api();
+      setQuizzes(x.quizzes);
+      setReady(true);
+      if (!adminMode) {
+        const r = await fetch("/api/profile");
+        if (r.ok) setCreatorProfile(await r.json());
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function action(fn: () => Promise<void>) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      await fn();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function openCreation(mode?: "manual" | "ai") {
+    setDraft(emptyQuiz());
+    setCreationMode(mode || null);
+    setShowAI(false);
+    setShowImport(false);
+    setError("");
+    setMessage("");
+    setView("create");
+  }
+  function updateQuestion(i: number, field: string, value: any) {
+    setDraft((d: any) => ({
+      ...d,
+      questions: d.questions.map((q: any, j: number) =>
+        i === j ? { ...q, [field]: value } : q,
+      ),
+    }));
+  }
+  async function copy(q: any) {
+    const link = location.origin + "/q/" + q.id;
+    try {
+      await navigator.clipboard.writeText(link);
+      setMessage("Participant link copied.");
+    } catch {
+      setMessage("Copy this participant link: " + link);
+    }
+  }
+  async function results(q: any) {
+    await action(async () => {
+      const x = await api("/api/teacher?results=" + q.id);
+      setSelected(q);
+      setAttempts(x.attempts);
+      setView("results");
+    });
+  }
+  function csv() {
+    const esc = (x: any) =>
+      '"' +
+      String(x)
+        .replace(/^[=+@\-\t\r]/, "'")
+        .replaceAll('"', '""') +
+      '"';
+    const rows = [
+      ["Participant email", "Score", "Total", "Percentage", "Submitted"],
+      ...attempts.map((a) => [
+        a.student,
+        a.score,
+        a.total,
+        Math.round((a.score / a.total) * 100) + "%",
+        a.created,
+      ]),
+    ];
+    const blob = new Blob(
+        ["\uFEFF" + rows.map((r) => r.map(esc).join(",")).join("\r\n")],
+        { type: "text/csv;charset=utf-8" },
+      ),
+      url = URL.createObjectURL(blob),
+      link = document.createElement("a");
+    link.href = url;
+    link.download = "quiz-results.csv";
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const useAIDraft = (quiz: any) => {
+    setDraft((current: any) => ({
+      ...current,
+      subject: current.subject || quiz.subject || "",
+      questions: quiz.questions,
+    }));
+    setShowAI(false);
+    setMessage(
+      "AI questions imported. Review and edit every answer before saving.",
+    );
+  };
+  const leave = () => {
+    if (confirm("Leave this draft? Unsaved changes will be lost."))
+      setView("list");
+  };
+  return (
+    <>
+      <header className="header">
+        <Brand />
+        <div className="row">
+          {adminMode && (
+            <>
+              <a className="text-link" href="/admin/users">
+                Accounts
+              </a>
+              <a className="text-link" href="/admin/health">
+                Health & costs
+              </a>
+            </>
+          )}
+          {!adminMode && (
+            <a className="text-link" href="/profile">
+              {creatorProfile?.profile?.name || "My profile"}
+            </a>
+          )}
+          <a
+            className="text-link"
+            href={adminMode ? "/arena?admin=1" : "/arena"}
+          >
+            Arena
+          </a>
+          <span
+            className="pill creator-account-email"
+            title={!adminMode ? "Signed-in account" : undefined}
+          >
+            {adminMode ? "ADMIN SPACE" : creatorEmail}
+          </span>
+          {ready &&
+            (adminMode ? (
+              <a
+                className="icon-button"
+                aria-label="Sign out"
+                href="/signout-with-chatgpt?return_to=/"
+                target="_top"
+              >
+                <LogOut size={19} />
+              </a>
+            ) : (
+              <button
+                className="icon-button"
+                aria-label="Sign out"
+                onClick={() =>
+                  action(async () => {
+                    const r = await fetch("/api/account", { method: "DELETE" });
+                    if (!r.ok) throw Error("Unable to sign out.");
+                    window.location.assign("/");
+                  })
+                }
+              >
+                <LogOut size={19} />
+              </button>
+            ))}
+        </div>
+      </header>
+      <main className="dashboard">
+        {error && (
+          <div className="alert" role="alert">
+            {error}
+          </div>
+        )}
+        {message && (
+          <div className="notice" role="status">
+            {message}
+          </div>
+        )}
+        {!ready ? (
+          <div className="login-card">
+            <span className="feature-icon">
+              <LockKeyhole />
+            </span>
+            <h1>Your creator workspace.</h1>
+            <p className="lead">
+              {busy
+                ? "Loading your content…"
+                : "Unable to load the dashboard. Please retry."}
+            </p>
+            <button className="btn" disabled={busy} onClick={login}>
+              Refresh dashboard
+            </button>
+          </div>
+        ) : view === "list" ? (
+          <>
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">YOUR WORKSPACE, AT A GLANCE</span>
+                <h1>What will you make today?</h1>
+                <p className="muted">
+                  Create quizzes and surveys for anyone to join without an
+                  account.
+                </p>
+              </div>
+              <div className="row creator-primary-actions">
+                <button className="btn" onClick={() => openCreation()}>
+                  <Plus size={18} /> Create quiz
+                </button>
+                <a
+                  className="btn outline"
+                  href={adminMode ? "/surveys?admin=1&new=1" : "/surveys?new=1"}
+                >
+                  <ClipboardList size={18} /> Create survey
+                </a>
+              </div>
+            </div>
+            {!adminMode && creatorProfile && !creatorProfile.completed && (
+              <div className="notice">
+                <strong>Complete your creator profile.</strong> Add your name
+                and tell us a little about how you use QuizMint.{" "}
+                <a className="text-link" href="/profile">
+                  Set up my profile →
+                </a>
+              </div>
+            )}
+            <section className="creator-shortcuts" aria-label="Quick actions">
+              <button
+                type="button"
+                className="shortcut-card shortcut-manual"
+                onClick={() => openCreation("manual")}
+              >
+                <span className="shortcut-icon">
+                  <Plus size={24} />
+                </span>
+                <span>
+                  <strong>Create a quiz</strong>
+                  <small>Start with a blank quiz</small>
+                </span>
+                <ArrowUpRight size={21} />
+              </button>
+              <a
+                className="shortcut-card shortcut-survey"
+                href={adminMode ? "/surveys?admin=1&new=1" : "/surveys?new=1"}
+              >
+                <span className="shortcut-icon">
+                  <ClipboardList size={24} />
+                </span>
+                <span>
+                  <strong>Create a survey</strong>
+                  <small>Collect feedback and responses</small>
+                </span>
+                <ArrowUpRight size={21} />
+              </a>
+              <button
+                type="button"
+                className="shortcut-card shortcut-ai"
+                onClick={() => openCreation("ai")}
+              >
+                <span className="shortcut-icon">
+                  <Sparkles size={24} />
+                </span>
+                <span>
+                  <strong>Draft a quiz with AI</strong>
+                  <small>Turn a topic or source into questions</small>
+                </span>
+                <ArrowUpRight size={21} />
+              </button>
+              <button
+                type="button"
+                className="shortcut-card shortcut-import"
+                onClick={() => {
+                  setDraft(emptyQuiz());
+                  setShowImport(true);
+                  setView("edit");
+                }}
+              >
+                <span className="shortcut-icon">
+                  <FileUp size={24} />
+                </span>
+                <span>
+                  <strong>Import quiz questions</strong>
+                  <small>Import Word, Excel, slides or PDF</small>
+                </span>
+                <ArrowUpRight size={21} />
+              </button>
+              <a
+                className="shortcut-card shortcut-arena"
+                href={adminMode ? "/arena?admin=1" : "/arena"}
+              >
+                <span className="shortcut-icon">
+                  <Trophy size={24} />
+                </span>
+                <span>
+                  <strong>Host an Arena</strong>
+                  <small>Turn a quiz into a live event</small>
+                </span>
+                <ArrowUpRight size={21} />
+              </a>
+            </section>
+            {!quizzes.length ? (
+              <div className="empty-state">
+                <span className="feature-icon">
+                  <BookOpen />
+                </span>
+                <h2>Your next lightbulb moment starts here.</h2>
+                <p>
+                  Create a quiz from scratch or use our five-question sample to
+                  explore.
+                </p>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setDraft({
+                      ...sample,
+                      questions: sample.questions.map((q) => ({
+                        ...q,
+                        options: [...q.options],
+                      })),
+                    });
+                    setView("edit");
+                  }}
+                >
+                  Start with a sample <ArrowUpRight size={17} />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="row between section-title">
+                  <h2>
+                    Your quiz library{" "}
+                    <span className="count">{quizzes.length}</span>
+                  </h2>
+                  <button className="text-link" disabled={busy} onClick={login}>
+                    Refresh results ↻
+                  </button>
+                </div>
+                <div className="quiz-grid">
+                  {quizzes.map((q) => (
+                    <article className="quiz-library-card" key={q.id}>
+                      <div className="row between">
+                        <span className="pill">{q.subject || "GENERAL"}</span>
+                        <span
+                          className={"status " + (!q.active ? "closed" : "")}
+                        >
+                          {q.active ? "Open" : "Closed"}
+                        </span>
+                      </div>
+                      <h2>{q.title}</h2>
+                      <p className="muted clamp">{q.description}</p>
+                      <div className="card-metrics">
+                        <span>{q.questions.length} questions</span>
+                        <span>{q.submissions} submissions</span>
+                      </div>
+                      <div className="row">
+                        <button className="btn small" onClick={() => copy(q)}>
+                          <Copy size={15} /> Copy participant link
+                        </button>
+                        <a
+                          className="btn small outline"
+                          href={
+                            "/arena?quiz=" +
+                            q.id +
+                            (adminMode ? "&admin=1" : "")
+                          }
+                        >
+                          Host live
+                        </a>
+                        <button
+                          className="btn small outline"
+                          disabled={busy}
+                          onClick={() => results(q)}
+                        >
+                          <BarChart3 size={16} /> Results
+                        </button>
+                      </div>
+                      <div className="card-bottom">
+                        <a
+                          className="text-link"
+                          href={"/q/" + q.id}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Preview quiz ↗
+                        </a>
+                        <button
+                          className="text-link"
+                          disabled={busy}
+                          onClick={() =>
+                            action(async () => {
+                              await api("/api/teacher", {
+                                method: "PATCH",
+                                body: JSON.stringify({
+                                  id: q.id,
+                                  active: !q.active,
+                                }),
+                              });
+                              await login();
+                            })
+                          }
+                        >
+                          {q.active ? "Close quiz" : "Reopen quiz"}
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          aria-label={"Delete " + q.title}
+                          disabled={busy}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                "Delete this quiz, saved participant progress and all its results? This cannot be undone.",
+                              )
+                            )
+                              action(async () => {
+                                await api("/api/teacher?id=" + q.id, {
+                                  method: "DELETE",
+                                });
+                                await login();
+                              });
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        ) : view === "create" ? (
+          <>
+            <button className="text-link" onClick={() => setView("list")}>
+              <ChevronLeft size={16} /> Back to library
+            </button>
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">CREATE A QUIZ</span>
+                <h1>
+                  {creationMode
+                    ? "Start with the essentials."
+                    : "How would you like to create?"}
+                </h1>
+                <p className="muted">
+                  {creationMode
+                    ? "Name the quiz and tell learners what to expect."
+                    : "Choose a path. You can review every question before sharing."}
+                </p>
+              </div>
+            </div>
+            {!creationMode ? (
+              <section className="creation-paths">
+                <button
+                  type="button"
+                  className="creation-path"
+                  onClick={() => setCreationMode("manual")}
+                >
+                  <Plus size={28} />
+                  <strong>Manual creation</strong>
+                  <small>
+                    Write your title and instructions, then go straight to the
+                    quiz editor. Add and refine questions at your own pace.
+                  </small>
+                  <span className="text-link">Create manually →</span>
+                </button>
+                <button
+                  type="button"
+                  className="creation-path"
+                  onClick={() => setCreationMode("ai")}
+                >
+                  <Sparkles size={28} />
+                  <strong>Assisted creation</strong>
+                  <small>
+                    Set the quiz title and instructions first. Then use AI to
+                    draft questions from a topic, text, document or recording.
+                  </small>
+                  <span className="text-link">Create with AI →</span>
+                </button>
+              </section>
+            ) : (
+              <form
+                className="creation-setup"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowAI(creationMode === "ai");
+                  setShowImport(false);
+                  setView("edit");
+                }}
+              >
+                <section className="editor-card">
+                  <span className="pill creation-mode">
+                    {creationMode === "ai"
+                      ? "ASSISTED CREATION"
+                      : "MANUAL CREATION"}
+                  </span>
+                  <h2>
+                    {creationMode === "ai"
+                      ? "What is this AI draft for?"
+                      : "What will learners work on?"}
+                  </h2>
+                  <label>
+                    Quiz title
+                    <input
+                      required
+                      maxLength={120}
+                      autoFocus
+                      placeholder="e.g. Communication essentials"
+                      value={draft.title}
+                      onChange={(e) =>
+                        setDraft({ ...draft, title: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Participant instructions / description
+                    <textarea
+                      required
+                      maxLength={1000}
+                      rows={4}
+                      placeholder="e.g. Check your understanding of the key ideas before the workshop."
+                      value={draft.description}
+                      onChange={(e) =>
+                        setDraft({ ...draft, description: e.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="btn outline"
+                      onClick={() => setCreationMode(null)}
+                    >
+                      Choose another path
+                    </button>
+                    <button className="btn">
+                      {creationMode === "ai"
+                        ? "Continue to AI questions"
+                        : "Continue to quiz editor"}{" "}
+                      <ArrowUpRight size={17} />
+                    </button>
+                  </div>
+                </section>
+              </form>
+            )}
+          </>
+        ) : view === "edit" ? (
+          <>
+            <button className="text-link" onClick={leave}>
+              <ChevronLeft size={16} /> Back to library
+            </button>
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">BUILD A LEARNING MOMENT</span>
+                <h1>
+                  {showAI
+                    ? "Draft your questions with AI."
+                    : "Create your quiz."}
+                </h1>
+                <p className="muted">
+                  {showAI
+                    ? "Review the generated questions below before bringing them into your editor."
+                    : "Add questions, answers and explanations. Learners can take a timed challenge or an untimed quiz."}
+                </p>
+              </div>
+              <button
+                className="btn outline"
+                disabled={imageUploads > 0}
+                aria-expanded={showImport}
+                onClick={() => setShowImport(!showImport)}
+              >
+                Import questions
+              </button>
+            </div>
+            {showAI && (
+              <div id="ai-builder" className="ai-builder-anchor">
+                <AIBuilder
+                  adminMode={adminMode}
+                  quizTitle={draft.title}
+                  quizDescription={draft.description}
+                  onGenerated={useAIDraft}
+                />
+              </div>
+            )}
+            {showImport && (
+              <DocumentImport
+                adminMode={adminMode}
+                onBusy={(running) =>
+                  setImageUploads((n) => Math.max(0, n + (running ? 1 : -1)))
+                }
+                onImported={(quiz) => {
+                  if (imageUploads) return false;
+                  if (
+                    (draft.title ||
+                      draft.questions.some((q: any) => q.prompt)) &&
+                    !confirm(
+                      "Replace your current draft with the imported quiz? Unsaved changes will be lost.",
+                    )
+                  )
+                    return false;
+                  setDraft({
+                    ...quiz,
+                    timeLimitMinutes: draft.timeLimitMinutes || 0,
+                  });
+                  setShowImport(false);
+                  setMessage(
+                    "Document imported. Review every question before saving.",
+                  );
+                  return true;
+                }}
+              />
+            )}
+            {!showAI && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (imageUploads) return;
+                  action(async () => {
+                    await api("/api/teacher", {
+                      method: "POST",
+                      body: JSON.stringify(draft),
+                    });
+                    await login();
+                    setView("list");
+                    setMessage(
+                      "Quiz created. Copy its participant link to share it.",
+                    );
+                  });
+                }}
+              >
+                <section className="editor-card">
+                  <div className="two-fields">
+                    <label>
+                      Quiz title
+                      <input
+                        required
+                        maxLength={120}
+                        value={draft.title}
+                        onChange={(e) =>
+                          setDraft({ ...draft, title: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Subject or module
+                      <input
+                        maxLength={80}
+                        placeholder="e.g. HCM4003"
+                        value={draft.subject}
+                        onChange={(e) =>
+                          setDraft({ ...draft, subject: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Participant instructions
+                    <textarea
+                      required
+                      maxLength={1000}
+                      rows={3}
+                      value={draft.description}
+                      onChange={(e) =>
+                        setDraft({ ...draft, description: e.target.value })
+                      }
+                    />
+                  </label>
+                </section>
+                {draft.questions.map((q: any, i: number) => (
+                  <section className="editor-card" key={i}>
+                    <div className="row between">
+                      <h2>
+                        <span className="count">{i + 1}</span> Question {i + 1}
+                      </h2>
+                      {draft.questions.length > 1 && (
+                        <button
+                          type="button"
+                          className="icon-button danger"
+                          aria-label={"Remove question " + (i + 1)}
+                          disabled={imageUploads > 0}
+                          onClick={() =>
+                            setDraft({
+                              ...draft,
+                              questions: draft.questions.filter(
+                                (_: any, j: number) => j !== i,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      )}
+                    </div>
+                    <label>
+                      Question
+                      <textarea
+                        required
+                        rows={2}
+                        maxLength={1500}
+                        value={q.prompt}
+                        placeholder="What would you like participants to think about?"
+                        onChange={(e) =>
+                          updateQuestion(i, "prompt", e.target.value)
+                        }
+                      />
+                    </label>
+                    <QuestionVisualTools
+                      question={q}
+                      adminMode={adminMode}
+                      onChange={(field, value) =>
+                        updateQuestion(i, field, value)
+                      }
+                      onBusy={(running) =>
+                        setImageUploads((n) =>
+                          Math.max(0, n + (running ? 1 : -1)),
+                        )
+                      }
+                    />
+                    <label>
+                      Question type
+                      <select
+                        value={Array.isArray(q.correct) ? "multiple" : "single"}
+                        onChange={(e) =>
+                          updateQuestion(
+                            i,
+                            "correct",
+                            e.target.value === "multiple"
+                              ? answerOptions(q.correct)
+                              : (answerOptions(q.correct)[0] ?? -1),
+                          )
+                        }
+                      >
+                        <option value="single">Single answer</option>
+                        <option value="multiple">Select all that apply</option>
+                      </select>
+                    </label>
+                    <p className="fine">
+                      {Array.isArray(q.correct)
+                        ? "Mark at least two correct options."
+                        : "Choose one correct option."}
+                    </p>
+                    <div className="option-editor">
+                      {q.options.map((o: string, j: number) => (
+                        <div
+                          className={
+                            "option-edit " +
+                            (answerOptions(q.correct).includes(j)
+                              ? "correct"
+                              : "")
+                          }
+                          key={j}
+                        >
+                          {Array.isArray(q.correct) ? (
+                            <input
+                              type="checkbox"
+                              className="quiz-choice-checkbox"
+                              aria-label={
+                                "Mark option " + "ABCD"[j] + " as correct"
+                              }
+                              checked={q.correct.includes(j)}
+                              onChange={() =>
+                                updateQuestion(
+                                  i,
+                                  "correct",
+                                  toggleAnswer(q.correct, j),
+                                )
+                              }
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="answer-key-toggle"
+                              aria-label={
+                                "Set option " + "ABCD"[j] + " as correct"
+                              }
+                              aria-pressed={q.correct === j}
+                              title={
+                                q.correct === j
+                                  ? "Correct answer"
+                                  : "Mark as correct"
+                              }
+                              onClick={() => updateQuestion(i, "correct", j)}
+                            >
+                              <Check size={18} />
+                            </button>
+                          )}
+                          <span>{"ABCD"[j]}</span>
+                          <input
+                            required
+                            aria-label={
+                              "Question " + (i + 1) + " option " + "ABCD"[j]
+                            }
+                            maxLength={600}
+                            value={o}
+                            placeholder={"Option " + "ABCD"[j]}
+                            onChange={(e) =>
+                              updateQuestion(
+                                i,
+                                "options",
+                                q.options.map((v: string, k: number) =>
+                                  k === j ? e.target.value : v,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <label>
+                      Answer explanation
+                      <textarea
+                        required
+                        rows={3}
+                        maxLength={2000}
+                        placeholder="Explain the reasoning behind the correct answer."
+                        value={q.explanation}
+                        onChange={(e) =>
+                          updateQuestion(i, "explanation", e.target.value)
+                        }
+                      />
+                    </label>
+                  </section>
+                ))}
+                <div className="row between editor-footer">
+                  <button
+                    className="btn outline"
+                    type="button"
+                    disabled={draft.questions.length >= 50}
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        questions: [...draft.questions, blankQuestion()],
+                      })
+                    }
+                  >
+                    <Plus size={17} /> Add question
+                  </button>
+                  <button className="btn" disabled={busy || imageUploads > 0}>
+                    {imageUploads > 0
+                      ? "Preparing visuals…"
+                      : busy
+                        ? "Saving…"
+                        : "Save & create participant link"}{" "}
+                    <ArrowUpRight size={17} />
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
+        ) : (
+          <>
+            <button className="text-link" onClick={() => setView("list")}>
+              <ChevronLeft size={16} /> Back to library
+            </button>
+            <div className="page-heading">
+              <div>
+                <span className="eyebrow">LEARNING, MADE VISIBLE</span>
+                <h1>{selected?.title}</h1>
+                <p className="muted">
+                  {attempts.length} submissions on this page.
+                </p>
+              </div>
+              <button className="btn" disabled={!attempts.length} onClick={csv}>
+                <Download size={17} /> Export this page
+              </button>
+            </div>
+            <div className="table-card">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Participant email</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Submitted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.map((a) => (
+                    <tr key={a.id}>
+                      <td>{a.student}</td>
+                      <td>
+                        {a.score} / {a.total}
+                      </td>
+                      <td>
+                        <span className="pill">
+                          {Math.round((a.score / a.total) * 100)}%
+                        </span>
+                      </td>
+                      <td>{new Date(a.created).toLocaleString("en-GB")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!attempts.length && (
+                <div className="empty-state">
+                  <h2>No submissions yet.</h2>
+                  <p>Share the participant link to get started.</p>
+                  <button className="btn" onClick={() => copy(selected)}>
+                    Copy participant link
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </main>
+      <footer>
+        QuizMint <span>Built for sharing. Designed for participation.</span>
+        <a href="/terms">Terms of Use</a>
+        <a href="/privacy">Privacy Policy</a>
+      </footer>
+    </>
+  );
 }

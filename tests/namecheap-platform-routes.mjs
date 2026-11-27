@@ -19,7 +19,7 @@ try {
   await build({ entryPoints: ['app/api/platform/route.ts', 'lib/platform-controls.ts'], outbase: '.', outdir: '.sites-runtime/namecheap-platform-routes', bundle: true, platform: 'node', format: 'esm', outExtension: { '.js': '.mjs' }, plugins: [plugin] });
   const route = await import('../.sites-runtime/namecheap-platform-routes/app/api/platform/route.mjs');
   const controls = await import('../.sites-runtime/namecheap-platform-routes/lib/platform-controls.mjs');
-  const token='a'.repeat(64);fixture.sql.prepare('INSERT INTO creator_users VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');fixture.sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update(token).digest('hex'),'admin-user',Date.now()+600000);
+  const token='a'.repeat(64);fixture.sql.prepare('INSERT INTO creator_users(id,email,password_hash,salt,created) VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');fixture.sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update(token).digest('hex'),'admin-user',Date.now()+600000);
   const root = 'https://quizmint.test', admin = { Cookie:'__Host-quiz_session='+token };
   const request = (method, value, headers = admin, origin = root) => new Request(root + '/api/platform', { method, headers: { ...headers, Origin: origin, 'Content-Type': 'application/json' }, ...(value ? { body: JSON.stringify(value) } : {}) });
   const save = value => route.PATCH(request('PATCH', { ...controls.defaults, ...value }));

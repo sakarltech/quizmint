@@ -99,7 +99,7 @@ export function platformRepository(pool) {
       });
     },
     async dashboard(month, now) {
-      const [counts] = await rows(pool, "SELECT (SELECT COUNT(*) FROM creator_users) creators,(SELECT COUNT(*) FROM quizzes) quizzes,(SELECT COUNT(*) FROM attempts) submissions,(SELECT COUNT(*) FROM ai_wallets WHERE subscription_end>?) subscribers,(SELECT COUNT(*) FROM public_quizzes WHERE published=1) publicQuizzes,(SELECT COUNT(*) FROM ai_jobs WHERE status='failed') failedGenerations,(SELECT COUNT(*) FROM ai_queue WHERE status='queued' AND expires>?) queued,(SELECT COUNT(*) FROM ai_queue WHERE status IN ('ready','running') AND expires>?) running", [now, now, now]);
+      const [counts] = await rows(pool, "SELECT (SELECT COUNT(*) FROM creator_users) creators,(SELECT COUNT(*) FROM quizzes) quizzes,(SELECT COUNT(*) FROM attempts) submissions,(SELECT COUNT(*) FROM surveys) surveys,(SELECT COUNT(*) FROM survey_responses) surveyResponses,(SELECT COUNT(*) FROM ai_wallets WHERE subscription_end>?) subscribers,(SELECT COUNT(*) FROM public_quizzes WHERE published=1) publicQuizzes,(SELECT COUNT(*) FROM ai_jobs WHERE status='failed') failedGenerations,(SELECT COUNT(*) FROM ai_queue WHERE status='queued' AND expires>?) queued,(SELECT COUNT(*) FROM ai_queue WHERE status IN ('ready','running') AND expires>?) running", [now, now, now]);
       const features = await rows(pool, 'SELECT feature,COUNT(*) calls,SUM(cost_micro) cost FROM ai_usage WHERE month=? GROUP BY feature', [month]);
       // Arithmetic from the epoch keeps this grouping in UTC regardless of the
       // hosting server's session timezone.

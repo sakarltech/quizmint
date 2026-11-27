@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 export function platformDriverFixture() {
   const sql = new DatabaseSync(':memory:');
   for (const file of readdirSync('drizzle').filter(f => f.endsWith('.sql')).sort()) sql.exec(readFileSync('drizzle/' + file, 'utf8'));
+  sql.exec('ALTER TABLE creator_users ADD COLUMN suspended_at INTEGER; ALTER TABLE creator_users ADD COLUMN suspension_reason TEXT');
   let waiting = Promise.resolve(), fail = false;
   const execute = async (query, values = []) => {
     if (fail && query.startsWith('UPDATE ai_usage SET status=?')) { fail = false; throw Error('Synthetic settlement failure'); }

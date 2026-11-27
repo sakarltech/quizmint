@@ -12,7 +12,7 @@ async function api(path:string,init:RequestInit={}):Promise<any>{const r=await f
 export default function SurveyDashboard(){
  const [list,setList]=useState<Entry[]>([]),[draft,setDraft]=useState<Survey>(empty),[id,setId]=useState(''),[view,setView]=useState<'list'|'edit'|'preview'|'results'>('list'),[locked,setLocked]=useState(false),[results,setResults]=useState<SurveyResult[]>([]),[total,setTotal]=useState(0),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[file,setFile]=useState<File|null>(null),[topic,setTopic]=useState(''),[count,setCount]=useState(5);
  async function load(){const x=await api('/api/surveys');setList(x.surveys);}
- useEffect(()=>{load().catch(e=>setError(e.message));},[]);
+ useEffect(()=>{load().catch(e=>setError(e.message));queueMicrotask(()=>{if(new URLSearchParams(location.search).get('new')==='1')setView('edit');});},[]);
  async function action(fn:()=>Promise<void>){setBusy(true);setError('');try{await fn();}catch(e){setError(e instanceof Error?e.message:'Please try again.');}finally{setBusy(false);}}
  function setQuestion(index:number,changes:Partial<SurveyQuestion>){setDraft(d=>({...d,questions:d.questions.map((q,i)=>i===index?{...q,...changes}:q)}));}
  function loadDraft(quiz:{title:string;description:string;questions:{prompt:string;options:string[]}[]}){setDraft(d=>({...d,title:quiz.title,description:quiz.description,questions:quiz.questions.map(q=>{const options=q.options.filter(Boolean);return options.length>=2?{prompt:q.prompt,type:'single',required:true,options,branches:options.map(()=>null)}:{prompt:q.prompt,type:'short',required:true,options:[],branches:[]};})}));}
