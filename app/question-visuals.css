@@ -3,3 +3,23 @@
 .visual-suggestion-badge{display:inline-block;margin:5px 0 5px 10px;padding:3px 8px;border-radius:5px;background:#edf6f0;color:#244c39;font-size:.8rem;font-weight:600}
 
 .dashboard .editor-card{border-radius:12px;box-shadow:none}.dashboard .editor-card h2 .count{display:inline;width:auto;height:auto;background:transparent;border:0;border-radius:0;padding:0;margin-right:6px;color:inherit}
+
+input.quiz-choice-checkbox[type=checkbox] {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  accent-color: var(--green);
+}
+.answer:has(.quiz-choice-checkbox),
+.arena-option:has(.quiz-choice-checkbox) {
+  cursor: pointer;
+}
+.quiz-choice-checkbox + .letter {
+  flex: 0 0 auto;
+}
+.quiz-choice-checkbox + .letter + span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}

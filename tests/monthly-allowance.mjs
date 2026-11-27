@@ -7,7 +7,26 @@ const sql=new DatabaseSync(':memory:');
 sql.exec(readdirSync('drizzle').filter(f=>f.endsWith('.sql')).sort().map(f=>readFileSync('drizzle/'+f,'utf8')).join('\n').replaceAll('--> statement-breakpoint',''));
 class Statement{constructor(query){this.query=query;}bind(...values){this.values=values;return this;}async run(){return sql.prepare(this.query).run(...this.values);}async first(){return sql.prepare(this.query).get(...this.values);}}
 globalThis.__allowanceEnv={DB:{prepare:q=>new Statement(q),batch:async statements=>{sql.exec('BEGIN');try{for(const statement of statements)await statement.run();sql.exec('COMMIT');}catch(e){sql.exec('ROLLBACK');throw e;}}}};
-await build({entryPoints:['lib/ai-server.ts','lib/free-allowance.ts'],outdir:'.sites-runtime/monthly-tests',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-env',setup(b){b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));b.onLoad({filter:/.*/,namespace:'test'},()=>({contents:'export const env=globalThis.__allowanceEnv',loader:'js'}));}}]});
+const namecheap=process.env.QUIZMINT_ALLOWANCE_TEST_RUNTIME==='namecheap';
+let waiting=Promise.resolve();
+if(namecheap){
+ globalThis.__allowanceEnv.QUIZMINT_RUNTIME='namecheap';
+ globalThis.__allowanceEnv.DB={prepare(){throw Error('D1 must not be used.');}};
+ const execute=async(query,values=[])=>{
+  const adapted=query.replace(/ FOR UPDATE$/,'').replace(/\bLEAST\(/g,'MIN(').replace(/\bGREATEST\(/g,'MAX(').replace(/ ON DUPLICATE KEY UPDATE user_id=VALUES\(user_id\)$/,' ON CONFLICT(user_id) DO NOTHING');
+  const statement=sql.prepare(adapted);return query.startsWith('SELECT')?[statement.all(...values)]:[statement.run(...values)];
+ };
+ globalThis.__allowancePool={execute,getConnection:async()=>{
+  const previous=waiting;let release;waiting=new Promise(resolve=>{release=resolve;});await previous;
+  return {execute,beginTransaction:async()=>sql.exec('BEGIN'),commit:async()=>sql.exec('COMMIT'),rollback:async()=>sql.exec('ROLLBACK'),release:()=>release()};
+ }};
+ Object.assign(process.env,{DB_NAME:'isolated_allowance_test',DB_USER:'test',DB_PASSWORD:'test-only'});
+}
+await build({entryPoints:['lib/ai-server.ts','lib/free-allowance.ts'],outdir:'.sites-runtime/monthly-tests',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[{name:'test-env',setup(b){
+ b.onResolve({filter:/^cloudflare:workers$/},()=>({path:'env',namespace:'test'}));
+ if(namecheap)b.onResolve({filter:/^mysql2\/promise$/},()=>({path:'mysql',namespace:'test'}));
+ b.onLoad({filter:/.*/,namespace:'test'},args=>({contents:args.path==='env'?'export const env=globalThis.__allowanceEnv':'export const createPool=()=>globalThis.__allowancePool',loader:'js'}));
+}}]});
 const {wallet,refundReservation}=await import('../.sites-runtime/monthly-tests/ai-server.mjs');
 const {freeAllowancePeriod}=await import('../.sites-runtime/monthly-tests/free-allowance.mjs');
 assert.equal(freeAllowancePeriod(Date.parse('2026-06-30T22:59:59Z')).resetsAt,Date.parse('2026-06-30T23:00:00Z'));

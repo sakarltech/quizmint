@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { namecheapDatabase, closeNamecheapDatabase } from '../db/namecheap.mjs';
+import { quizRepository } from '../db/namecheap-quizzes.mjs';
+import { quizTestTables } from '../db/namecheap-quiz-test-tables.mjs';
+let connection, phase = 'connection';
+try {
+  connection = await (await namecheapDatabase()).getConnection();
+  const tables = quizTestTables(randomUUID().replaceAll('-', '').slice(0, 12));
+  phase = 'temporary table creation';
+  for (const statement of tables.definitions) await connection.query(statement);
+  const execute = (sql, values) => connection.execute(tables.sql(sql), values);
+  const store = quizRepository({ execute, getConnection: async () => ({ execute, beginTransaction: () => connection.beginTransaction(), commit: () => connection.commit(), rollback: () => connection.rollback(), release() {} }) });
+  const owner = { id: 'synthetic-owner', isAdmin: false }, other = { id: 'synthetic-other', isAdmin: false }, admin = { id: null, isAdmin: true };
+  const id = randomUUID(), created = new Date().toISOString();
+  const quiz = { title: 'Temporary migration check', subject: 'Testing', description: 'Temporary data only', questions: [{ prompt: 'Two plus two?', options: ['1', '2', '3', '4'], correct: 3, explanation: 'Four.' }], timeLimitMinutes: 0 };
+  phase = 'quiz creation and ownership';
+  await store.create({ id, quiz, ownerId: owner.id, created });
+  assert.equal((await store.get(id)).title, quiz.title);
+  assert.equal(await store.owns(id, owner), true);
+  assert.equal(await store.owns(id, other), false);
+  assert.equal(await store.owns(id, admin), true);
+  assert.equal((await store.list(owner, 0)).length, 1);
+  assert.equal((await store.list(other, 0)).length, 0);
+  phase = 'submission and replay';
+  const attempt = { id: randomUUID(), quizId: id, result: { student: 'synthetic@quizmint.invalid', score: 1, total: 1, created } };
+  const first = await store.saveAttempt(attempt);
+  assert.ok(first);
+  const retry = await store.saveAttempt({ ...attempt, result: { ...attempt.result, score: 0 } });
+  assert.equal(retry.result, first.result);
+  assert.equal((await store.attempts(id, 0)).length, 1);
+  const summary = (await store.list(owner, 0))[0];
+  assert.equal(summary.submissions, 1);
+  assert.equal(summary.average, 100);
+  phase = 'closed quiz and unauthorized changes';
+  await store.setActive(id, false, other);
+  assert.equal((await store.get(id)).active, 1);
+  await store.setActive(id, false, owner);
+  assert.equal(await store.saveAttempt({ ...attempt, id: randomUUID() }), null);
+  assert.equal(await store.remove(id, other), false);
+  phase = 'quiz deletion';
+  assert.equal(await store.remove(id, owner), true);
+  assert.equal(await store.get(id), null);
+  assert.equal((await store.attempts(id, 0)).length, 0);
+  console.log('MariaDB quiz checks passed: creation, ownership, listing, results, duplicate submissions, closed quizzes and deletion. Permanent application data unchanged.');
+} catch (error) {
+  const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
+  console.error(`Quiz checks failed during ${phase}${code ? ` (${code})` : ''}.`);
+  process.exitCode = 1;
+} finally {
+  if (connection) connection.destroy();
+  await closeNamecheapDatabase();
+}

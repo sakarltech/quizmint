@@ -1,0 +1,55 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { namecheapDatabase, closeNamecheapDatabase } from '../db/namecheap.mjs';
+import { libraryRepository } from '../db/namecheap-library.mjs';
+import { quizRepository } from '../db/namecheap-quizzes.mjs';
+import { libraryTestTables } from '../db/namecheap-library-test-tables.mjs';
+let connection, phase = 'connection';
+try {
+  connection = await (await namecheapDatabase()).getConnection();
+  const tables = await libraryTestTables(randomUUID().replaceAll('-', '').slice(0, 12));
+  phase = 'temporary table creation';
+  for (const statement of tables.definitions) await connection.query(statement);
+  const execute = (sql, values) => connection.execute(tables.sql(sql), values);
+  const pool = { execute, getConnection: async () => ({ execute, beginTransaction: () => connection.beginTransaction(), commit: () => connection.commit(), rollback: () => connection.rollback(), release() {} }) };
+  const library = libraryRepository(pool), quizzes = quizRepository(pool);
+  const id = randomUUID(), created = new Date().toISOString();
+  const quiz = { title: 'Maths Shapes', subject: 'AI', description: 'Temporary library check', timeLimitMinutes: 5, questions: [{ prompt: '2+2?', options: ['1','2','3','4'], correct: 3, explanation: 'Four.' }] };
+  phase = 'publication and search';
+  await quizzes.create({ id, quiz, ownerId: 'owner', created });
+  await library.publish({ id, ownerId: 'owner', quiz, created: Date.now() });
+  assert.equal((await library.list(['MATH', 'ai'], 0)).length, 1);
+  assert.equal((await library.list(['missing'], 0)).length, 0);
+  const publicQuiz = await library.get(id);
+  assert.equal(JSON.parse(publicQuiz.quiz).timeLimitMinutes, 5);
+  phase = 'copy and counter';
+  const cloneId = randomUUID();
+  assert.equal(await library.copy({ sourceId: id, sourceSnapshot: publicQuiz.quiz, id: cloneId, ownerId: 'other', quiz, created }), true);
+  assert.equal((await quizzes.get(cloneId)).owner_id, 'other');
+  assert.equal((await quizzes.get(cloneId)).time_limit_minutes, 5);
+  assert.equal((await library.get(id)).copies, 1);
+  assert.equal(await library.copy({ sourceId: id, sourceSnapshot: '{}', id: randomUUID(), ownerId: 'other', quiz, created }), false);
+  assert.equal((await library.get(id)).copies, 1);
+  phase = 'publication update and removal';
+  await library.publish({ id, ownerId: 'owner', quiz: { ...quiz, title: 'Updated Shapes' }, created: Date.now() });
+  assert.equal((await library.list(['updated'], 0)).length, 1);
+  assert.equal((await library.get(id)).copies, 1);
+  await library.unpublish(id);
+  assert.equal(await library.get(id), null);
+  assert.equal((await library.list([], 0)).length, 0);
+  assert.equal(await library.copy({ sourceId: id, sourceSnapshot: publicQuiz.quiz, id: randomUUID(), ownerId: 'other', quiz, created }), false);
+  phase = 'profile persistence and isolation';
+  assert.equal(await library.profile('owner'), null);
+  await library.saveProfile('owner', { name: 'Test Teacher' }, created);
+  await library.saveProfile('owner', { name: 'Updated Teacher' }, created);
+  assert.equal(JSON.parse((await library.profile('owner')).profile).name, 'Updated Teacher');
+  assert.equal(await library.profile('other'), null);
+  console.log('MariaDB library/profile checks passed: publication, search, copies, counters, timing, unpublishing and private profiles. Permanent application data unchanged.');
+} catch (error) {
+  const code = typeof error?.code === 'string' && /^[A-Z0-9_]+$/.test(error.code) ? error.code : null;
+  console.error(`Library/profile checks failed during ${phase}${code ? ` (${code})` : ''}.`);
+  process.exitCode = 1;
+} finally {
+  if (connection) connection.destroy();
+  await closeNamecheapDatabase();
+}

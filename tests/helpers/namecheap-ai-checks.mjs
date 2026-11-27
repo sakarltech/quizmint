@@ -1,0 +1,60 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+
+// Shared deterministic scenarios for the local driver fixture and hosting temporary
+// tables. These call repository methods only; they never call OpenAI or Stripe.
+export async function exerciseAiStore({ store, execute, failNextPayment }) {
+  const userId='check-'+randomUUID(), periodStart=1000;
+  const read=()=>store.wallet(userId,periodStart);
+  assert.equal((await read()).free_remaining,20);
+  await execute('UPDATE ai_wallets SET credits=50 WHERE user_id=?',[userId]);
+  const reservation={userId,jobId:randomUUID(),free:7,paid:2,periodStart,now:2000};
+  assert.equal(await store.reserve(reservation),true);
+  let wallet=await read();assert.equal(wallet.free_remaining,13);assert.equal(wallet.credits,48);
+  assert.equal(await store.reserve({...reservation,jobId:randomUUID()}),false);
+  await store.refund({userId,jobId:reservation.jobId,expiredOnly:true,periodStart,now:2001});
+  assert.equal((await read()).free_remaining,13,'Active reservations cannot expire early');
+  await store.refund({userId,jobId:reservation.jobId,expiredOnly:true,periodStart,now:400000});
+  wallet=await read();assert.equal(wallet.free_remaining,20);assert.equal(wallet.credits,50);
+  await store.refund({userId,jobId:reservation.jobId,expiredOnly:false,periodStart,now:400000});
+  assert.equal((await read()).credits,50,'Refunds are idempotent');
+  const completed={...reservation,jobId:randomUUID(),free:5,paid:3,now:500000};
+  assert.equal(await store.reserve(completed),true);
+  assert.equal(await store.complete({userId,jobId:completed.jobId,result:'{"title":"saved"}'}),true);
+  assert.equal(await store.complete({userId,jobId:completed.jobId,result:'{"title":"overwrite"}'}),false);
+  assert.equal((await store.latest(userId)).result,'{"title":"saved"}');
+  await store.refund({userId,jobId:completed.jobId,expiredOnly:false,periodStart,now:900000});
+  wallet=await read();assert.equal(wallet.free_remaining,15);assert.equal(wallet.credits,47);
+  assert.equal(await store.reserve({...completed,now:900000}),false,'Completed request ids cannot charge again');
+  assert.equal(await store.job(completed.jobId,'different-user'),null);
+  const payment={userId,sessionId:'cs_'+randomUUID(),questions:50,customer:'cus_synthetic',periodStart,now:900000};
+  assert.equal(await store.fulfilPayment(payment),true);
+  assert.equal(await store.fulfilPayment(payment),false);
+  assert.equal((await read()).credits,97);
+  await assert.rejects(store.fulfilPayment({...payment,userId:'other-'+randomUUID()}),/ownership/);
+  const failed={...payment,sessionId:'cs_'+randomUUID(),questions:10};
+  failNextPayment();
+  await assert.rejects(store.fulfilPayment(failed),/Synthetic payment/);
+  const [markers]=await execute('SELECT id FROM ai_payments WHERE id=?',[failed.sessionId]);
+  assert.equal(markers.length,0,'Failed wallet update rolls the payment marker back');
+  assert.equal((await read()).credits,97);
+  assert.equal(await store.fulfilPayment(failed),true);
+  assert.equal((await read()).credits,107);
+  await store.extendSubscription(userId,2000000,'cus_synthetic');
+  await store.extendSubscription(userId,1000000,'cus_synthetic');
+  assert.equal((await read()).subscription_end,2000000);
+  await store.cancelSubscription(userId,'wrong_customer');
+  assert.equal((await read()).subscription_end,2000000);
+  await store.cancelSubscription(userId,'cus_synthetic');
+  assert.equal((await read()).subscription_end,0);
+  const monthlyId='monthly-'+randomUUID();
+  await store.wallet(monthlyId,1000);
+  await execute('UPDATE ai_wallets SET credits=10 WHERE user_id=?',[monthlyId]);
+  const old={userId:monthlyId,jobId:randomUUID(),free:3,paid:2,periodStart:1000,now:1500};
+  assert.equal(await store.reserve(old),true);
+  assert.equal((await store.wallet(monthlyId,2000)).free_remaining,20);
+  await execute('UPDATE ai_wallets SET free_remaining=15 WHERE user_id=?',[monthlyId]);
+  await store.refund({userId:monthlyId,jobId:old.jobId,expiredOnly:true,periodStart:2000,now:500000});
+  wallet=await store.wallet(monthlyId,2000);assert.equal(wallet.free_remaining,15);assert.equal(wallet.credits,10);
+  assert.equal(await store.complete({userId:monthlyId,jobId:old.jobId,result:'{}'}),false,'Refunded jobs cannot later succeed');
+}
