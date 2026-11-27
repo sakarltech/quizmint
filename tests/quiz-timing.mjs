@@ -12,6 +12,7 @@ globalThis.__timingEnv={DB:{prepare:q=>new Statement(q),batch:async qs=>{sql.exe
 const namecheap=process.env.QUIZMINT_TIMING_TEST_RUNTIME==='namecheap';
 let waiting=Promise.resolve();
 if(namecheap){
+ sql.exec('ALTER TABLE creator_users ADD COLUMN suspended_at INTEGER');
  globalThis.__timingEnv.QUIZMINT_RUNTIME='namecheap';
  globalThis.__timingEnv.DB={prepare(){throw Error('D1 must not be used.');}};
  const execute=async(query,values=[])=>{
@@ -33,7 +34,7 @@ const plugin={name:'env',setup(b){
 }};
 await build({entryPoints:['app/api/teacher/route.ts','app/api/library/route.ts','app/api/quiz/[id]/route.ts','app/api/quiz/[id]/session/route.ts'],outbase:'.',outdir:'.sites-runtime/timing-tests',bundle:true,platform:'node',format:'esm',outExtension:{'.js':'.mjs'},plugins:[plugin]});
 const teacher=await import('../.sites-runtime/timing-tests/app/api/teacher/route.mjs'),library=await import('../.sites-runtime/timing-tests/app/api/library/route.mjs'),student=await import('../.sites-runtime/timing-tests/app/api/quiz/[id]/route.mjs'),session=await import('../.sites-runtime/timing-tests/app/api/quiz/[id]/session/route.mjs');
-if(namecheap){globalThis.__timingEnv.QUIZMINT_ADMIN_USER_ID='admin-user';sql.prepare('INSERT INTO creator_users VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update('a'.repeat(64)).digest('hex'),'admin-user',Date.now()+600000);}
+if(namecheap){globalThis.__timingEnv.QUIZMINT_ADMIN_USER_ID='admin-user';sql.prepare('INSERT INTO creator_users(id,email,password_hash,salt,created) VALUES(?,?,?,?,?)').run('admin-user','admin@example.test','hash','salt','now');sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(createHash('sha256').update('a'.repeat(64)).digest('hex'),'admin-user',Date.now()+600000);}
 const root='https://example.test',admin=namecheap?{cookie:'__Host-quiz_session='+'a'.repeat(64)}:{'oai-authenticated-user-id':'admin','oai-authenticated-user-email':'admin@example.test'};
 const request=(path,data,method='POST',headers={},origin=root)=>new Request(root+path,{method,headers:{Origin:origin,'Content-Type':'application/json',...headers},...(data?{body:JSON.stringify(data)}:{})});
 const draft={title:'Test timing',subject:'Maths',description:'Choose one answer.',questions:[{prompt:'2 + 2?',options:['1','2','3','4'],correct:3,explanation:'Two plus two makes four.'},{prompt:'1 + 1?',options:['1','2','3','4'],correct:1,explanation:'One plus one makes two.'}]};
@@ -70,4 +71,31 @@ const long=await create(0),longRun=await (await call(long,{action:'start',studen
 await teacher.PATCH(request('/api/admin',{id:long,active:false},'PATCH',admin));assert.equal((await call(long,{action:'resume',token:longRun.token})).status,404);await teacher.PATCH(request('/api/admin',{id:long,active:true},'PATCH',admin));assert.equal((await call(long,{action:'resume',token:longRun.token})).status,200);
 if(!namecheap){assert.equal((await library.PATCH(request('/api/library',{id:timed,published:true,consent:true},'PATCH',admin))).status,200);const clone=await library.POST(request('/api/library',{id:timed},'POST',admin));assert.equal(clone.status,201);assert.equal(sql.prepare('SELECT time_limit_minutes FROM quizzes WHERE id=?').get((await clone.json()).id).time_limit_minutes,1,'Public copies retain timing');}
 assert.equal((await teacher.DELETE(request('/api/admin?id='+long,null,'DELETE',admin))).status,200);assert.equal(sql.prepare('SELECT COUNT(*) n FROM quiz_sessions WHERE quiz_id=?').get(long).n,0);assert.equal((await call(long,{action:'resume',token:longRun.token})).status,404);
-sql.close();console.log((namecheap?'Namecheap timed route fixture: ':'')+'Passed: timing bounds/defaults'+(namecheap?'': '/copies')+', hidden answers, private token hashes, email isolation, origin guards, untimed persistence, stale saves, immutable snapshots, concurrent submit deduplication, deadline enforcement, partial grading, offline return, legacy bypass rejection, close/reopen and progress deletion.');
+const multiDraft={...draft,questions:[draft.questions[0],{...draft.questions[1],prompt:'Which numbers are even?',correct:[3,1],explanation:'Two and four are even.'}]};
+for(const invalid of [[],[1],[1,1],[1,4]]) {
+ const questions=[multiDraft.questions[0],{...multiDraft.questions[1],correct:invalid}];
+ assert.equal((await teacher.POST(request('/api/admin',{...multiDraft,questions},'POST',admin))).status,400);
+}
+const multiCreated=await teacher.POST(request('/api/admin',{...multiDraft,timeLimitMinutes:1},'POST',admin));
+assert.equal(multiCreated.status,201);
+const multiId=(await multiCreated.json()).id;
+const multiPublic=await (await student.GET(request('/api/quiz/'+multiId,null,'GET'),params(multiId))).json();
+assert.deepEqual(multiPublic.questions.map(q=>q.multiSelect),[false,true]);
+assert.ok(multiPublic.questions.every(q=>!('correct' in q)&&!('explanation' in q)));
+const multiRun=await (await call(multiId,{action:'start',student:'multi@example.test'})).json();
+assert.equal((await call(multiId,{action:'save',token:multiRun.token,answers:[3,[1,1]],step:1,revision:0})).status,400);
+assert.equal((await call(multiId,{action:'save',token:multiRun.token,answers:[3,[3,1]],step:1,revision:0})).status,200);
+const multiResume=await (await call(multiId,{action:'resume',token:multiRun.token})).json();
+assert.deepEqual(multiResume.answers,[3,[3,1]]);
+sql.prepare('UPDATE quiz_sessions SET deadline=? WHERE quiz_id=?').run(Date.now()-1000,multiId);
+const multiExpired=await (await call(multiId,{action:'resume',token:multiRun.token})).json();
+assert.equal(multiExpired.result.score,2);
+assert.deepEqual(multiExpired.result.feedback[1].correct,[1,3]);
+for(const [selection,expected] of [[[3,1],2],[[1],1],[[0,1,3],1],[[0,1],1]]) {
+ const active=await (await call(multiId,{action:'start',student:'score@example.test'})).json();
+ assert.equal((await call(multiId,{action:'submit',token:active.token,answers:[3,[]]})).status,400);
+ const response=await call(multiId,{action:'submit',token:active.token,answers:[3,selection]});
+ assert.equal(response.status,200);
+ assert.equal((await response.json()).result.score,expected);
+}
+sql.close();console.log((namecheap?'Namecheap timed route fixture: ':'')+'Passed: timing bounds/defaults'+(namecheap?'': '/copies')+', hidden answers, private token hashes, email isolation, origin guards, untimed persistence, stale saves, immutable snapshots, concurrent submit deduplication, deadline enforcement, partial grading, multi-select exact matching, offline return, legacy bypass rejection, close/reopen and progress deletion.');

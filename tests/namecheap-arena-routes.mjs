@@ -21,11 +21,11 @@ try {
   const ownerToken = '1'.repeat(64), otherToken = '2'.repeat(64), playerToken = 'a'.repeat(64), secondToken = 'b'.repeat(64);
   const host = { Cookie: '__Host-quiz_session=' + ownerToken }, other = { Cookie: '__Host-quiz_session=' + otherToken };
   for (const [id, token] of [['owner', ownerToken], ['other', otherToken]]) {
-    sql.prepare('INSERT INTO creator_users VALUES(?,?,?,?,?)').run(id, id + '@example.test', 'hash', 'salt', 'now');
+    sql.prepare('INSERT INTO creator_users(id,email,password_hash,salt,created) VALUES(?,?,?,?,?)').run(id, id + '@example.test', 'hash', 'salt', 'now');
     sql.prepare('INSERT INTO creator_sessions VALUES(?,?,?)').run(hash(token), id, Date.now() + 600000);
   }
   const question = { prompt: 'Two plus two?', options: ['1', '2', '3', '4'], correct: 3, explanation: 'Four.', image: { id: 'synthetic-image', alt: 'Test visual' } };
-  for (const owner of ['owner', 'other']) sql.prepare('INSERT INTO quizzes(id,title,subject,description,questions,created,owner_id) VALUES(?,?,?,?,?,?,?)').run('quiz-' + owner, 'Test quiz', 'Maths', 'Test', JSON.stringify([question, { ...question, prompt: 'Another question?' }]), 'now', owner);
+  for (const owner of ['owner', 'other']) sql.prepare('INSERT INTO quizzes(id,title,subject,description,questions,created,owner_id) VALUES(?,?,?,?,?,?,?)').run('quiz-' + owner, 'Test quiz', 'Maths', 'Test', JSON.stringify([question, { ...question, prompt: 'Another question?', correct: [0,3] }]), 'now', owner);
   const request = (path, method = 'GET', data, headers = {}, origin = root) => new Request(root + path, { method, headers: { ...headers, Origin: origin, 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });
   const event = { quizId: 'quiz-owner', title: 'Knowledge Cup', mode: 'individual', seconds: 30 };
   assert.equal((await arena.GET(request('/api/arena'))).status, 401);
@@ -70,8 +70,15 @@ try {
   assert.equal((await call('PATCH', { action: 'next', version: state.version }, host)).status, 200);
   sql.prepare('DELETE FROM quizzes WHERE id=?').run('quiz-owner');
   state = await (await call('GET')).json(); assert.equal(state.question.prompt, 'Another question?', 'Room snapshot survives source deletion');
-  assert.equal((await call('POST', { action: 'answer', index: 1, selected: 3 }, guest(playerToken))).status, 200);
-  assert.equal((await call('POST', { action: 'answer', index: 1, selected: 3 }, guest(secondToken))).status, 200);
+  assert.equal(state.question.multiSelect, true);
+  assert.ok(!('correct' in state.question));
+  const multi = await call('POST', { action: 'answer', index: 1, selected: [3,0] }, guest(playerToken));
+  assert.equal(multi.status, 200);
+  assert.deepEqual((await multi.json()).selected, [0,3]);
+  assert.equal((await call('POST', { action: 'answer', index: 1, selected: [0,1,3] }, guest(secondToken))).status, 200);
+  assert.deepEqual((await (await call('GET', null, guest(playerToken))).json()).me.selected, [0,3]);
+  const points = sql.prepare('SELECT points FROM arena_answers WHERE room_code=? AND question_index=1 ORDER BY points DESC').all(code);
+  assert.deepEqual(points.map(row => row.points), [1000,0]);
   assert.equal((await call('PATCH', { action: 'reveal', version: state.version }, host)).status, 200);
   state = await (await call('GET')).json();
   assert.equal((await call('PATCH', { action: 'next', version: state.version }, host)).status, 200);

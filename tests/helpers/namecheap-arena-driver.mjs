@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 export function arenaDriverFixture() {
   const sql = new DatabaseSync(':memory:');
   for (const file of readdirSync('drizzle').filter(f => f.endsWith('.sql')).sort()) sql.exec(readFileSync('drizzle/' + file, 'utf8'));
+  sql.exec('ALTER TABLE creator_users ADD COLUMN suspended_at INTEGER');
   let waiting = Promise.resolve(), fail = false;
   const execute = async (query, values = []) => {
     if (fail && query.startsWith('DELETE FROM arena_players')) { fail = false; throw Error('Synthetic Arena deletion failure'); }

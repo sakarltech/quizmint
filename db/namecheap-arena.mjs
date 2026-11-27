@@ -1,4 +1,5 @@
 import { transaction } from './namecheap.mjs';
+import {encodeArenaAnswer} from '../lib/arena-answer.mjs';
 
 export function arenaRepository(pool) {
   const rows = async (connection, sql, values = []) => (await connection.execute(sql, values))[0];
@@ -69,8 +70,9 @@ export function arenaRepository(pool) {
         if (previous) return previous;
         if (room.status !== 'question' || room.question_index !== index || room.version !== version || room.deadline <= now) return null;
         const question = JSON.parse(room.questions)[index];
-        if (!question || !Number.isInteger(choice) || choice < 0 || choice >= question.options.length) return null;
-        await connection.execute('INSERT INTO arena_answers(room_code,player_id,question_index,selected,points,created) VALUES(?,?,?,?,?,?)', [code, playerId, index, choice, choice === question.correct ? 1000 : 0, now]);
+        if (!question || !Number.isInteger(choice)) return null;
+        if (Array.isArray(question.correct) ? choice < 5 || choice > 19 : choice < 0 || choice >= question.options.length) return null;
+        await connection.execute('INSERT INTO arena_answers(room_code,player_id,question_index,selected,points,created) VALUES(?,?,?,?,?,?)', [code, playerId, index, choice, choice === encodeArenaAnswer(question.correct) ? 1000 : 0, now]);
         return { selected: choice };
       });
     },

@@ -48,3 +48,23 @@ export function validateSurveyResponse(survey:Survey,identifier:unknown,values:u
  for(let n=0;n<values.length;n++)if(!seen.includes(n)&&values[n]!=null&&values[n]!==''&&!(Array.isArray(values[n])&&values[n].length===0))throw Error('Answers include questions outside your survey path.');
  return {identifier:survey.identifierLabel?String(identifier).trim():null,answers,seen};
 }
+
+export type SurveyResult = {identifier:string|null;answers:(string|string[]|number|null)[];seen:number[];created:number};
+
+export function surveyCsv(survey:Survey,results:SurveyResult[]):string {
+ const escape=(value:unknown)=>'"'+String(value??'').replace(/^[=+@\-\t\r]/,"'").replaceAll('"','""')+'"';
+ const header=['Submitted',...(survey.identifierLabel?[survey.identifierLabel]:[]),...survey.questions.map(q=>q.prompt)];
+ const responses=results.map(result=>{
+  const answers=result.answers.map((answer,index)=>{
+   if(!result.seen.includes(index))return '[Not shown]';
+   if(answer===null)return '[Skipped]';
+   if(Array.isArray(answer))return answer.join('; ');
+   const question=survey.questions[index];
+   if(question.type==='single')return question.options[answer as number];
+   if(question.type==='rating')return Number(answer)+1;
+   return answer;
+  });
+  return [new Date(result.created).toISOString(),...(survey.identifierLabel?[result.identifier]:[]),...answers];
+ });
+ return '\uFEFF'+[header,...responses].map(row=>row.map(escape).join(',')).join('\r\n');
+}

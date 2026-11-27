@@ -18,6 +18,7 @@
     "test:namecheap-startup": "node --test tests/namecheap-startup.cjs",
     "db:check:namecheap": "node --env-file-if-exists=.env.namecheap scripts/check-namecheap-db.mjs",
     "test:namecheap-db": "node --test tests/namecheap-db.mjs",
+    "db:migrate:surveys:namecheap": "node --env-file-if-exists=.env.namecheap scripts/migrate-namecheap-surveys.mjs",
     "db:setup:namecheap": "node --env-file-if-exists=.env.namecheap scripts/setup-namecheap-db.mjs",
     "test:namecheap-schema": "node --test tests/namecheap-schema.mjs",
     "test:namecheap-accounts": "node --test tests/namecheap-accounts.mjs",

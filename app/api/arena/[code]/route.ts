@@ -1,3 +1,5 @@
+import {encodeArenaAnswer,decodeArenaAnswer} from '../../../../lib/arena-answer.mjs';
+import {matchesAnswer,validAnswer} from '../../../../lib/quiz';
 import {nativeArenaStore} from '../../../../lib/arena-store';
 import {body,db,response,sameOrigin,clientIp} from '../../../../lib/server';
 import {digest,throttle} from '../../../../lib/accounts';
@@ -26,13 +28,15 @@ export async function POST(req:Request,{params}:Context){if(!sameOrigin(req))ret
  }
  if(x.action==='answer'){
   const player=await participant(req,code);if(!player)return response({error:'Rejoin the room before answering.'},401);
-  if(!Number.isInteger(x.index)||x.index!==r.question_index||!Number.isInteger(x.selected)||x.selected<0||x.selected>3)throw Error('Invalid answer or question.');
-  const native=await nativeArenaStore();if(native){const answer=await native.answer({code,playerId:player.id,index:x.index,version:r.version,choice:x.selected});if(!answer)return response({error:'Answers are closed or paused. Wait for the host.'},409);return response({selected:answer.selected});}
-  const previous=await db().prepare('SELECT selected FROM arena_answers WHERE room_code=? AND player_id=? AND question_index=?').bind(code,player.id,x.index).first<any>();if(previous)return response({selected:previous.selected});
+  if(!Number.isInteger(x.index)||x.index!==r.question_index)throw Error('Invalid answer or question.');
   const q=JSON.parse(r.questions)[x.index];if(!q)throw Error('Question not found.');
+  if(!validAnswer(x.selected,Array.isArray(q.correct)))throw Error('Invalid answer or question.');
+  const choice=encodeArenaAnswer(x.selected);
+  const native=await nativeArenaStore();if(native){const answer=await native.answer({code,playerId:player.id,index:x.index,version:r.version,choice});if(!answer)return response({error:'Answers are closed or paused. Wait for the host.'},409);return response({selected:decodeArenaAnswer(answer.selected)});}
+  const previous=await db().prepare('SELECT selected FROM arena_answers WHERE room_code=? AND player_id=? AND question_index=?').bind(code,player.id,x.index).first<any>();if(previous)return response({selected:decodeArenaAnswer(previous.selected)});
   // State and deadline checked in the write itself: no late answer can race a host reveal.
-  const saved=await db().prepare("INSERT OR IGNORE INTO arena_answers(room_code,player_id,question_index,selected,points,created) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM arena_rooms WHERE code=? AND status='question' AND question_index=? AND version=? AND deadline>? AND expires>?) AND EXISTS(SELECT 1 FROM arena_players WHERE id=? AND room_code=?)").bind(code,player.id,x.index,x.selected,x.selected===q.correct?1000:0,Date.now(),code,x.index,r.version,Date.now(),Date.now(),player.id,code).run();
-  const persisted=await db().prepare('SELECT selected FROM arena_answers WHERE room_code=? AND player_id=? AND question_index=?').bind(code,player.id,x.index).first<any>();if(!persisted)return response({error:'Answers are closed or paused. Wait for the host.'},409);return response({selected:persisted.selected});
+  const saved=await db().prepare("INSERT OR IGNORE INTO arena_answers(room_code,player_id,question_index,selected,points,created) SELECT ?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM arena_rooms WHERE code=? AND status='question' AND question_index=? AND version=? AND deadline>? AND expires>?) AND EXISTS(SELECT 1 FROM arena_players WHERE id=? AND room_code=?)").bind(code,player.id,x.index,choice,matchesAnswer(q.correct,x.selected)?1000:0,Date.now(),code,x.index,r.version,Date.now(),Date.now(),player.id,code).run();
+  const persisted=await db().prepare('SELECT selected FROM arena_answers WHERE room_code=? AND player_id=? AND question_index=?').bind(code,player.id,x.index).first<any>();if(!persisted)return response({error:'Answers are closed or paused. Wait for the host.'},409);return response({selected:decodeArenaAnswer(persisted.selected)});
  }
  throw Error('Unknown competition action.');
  }catch(e){return response({error:e instanceof Error?e.message:'Unable to update competition.'},400);}}

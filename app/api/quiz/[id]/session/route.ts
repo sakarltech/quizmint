@@ -2,19 +2,17 @@ import {quizSessionStore} from '../../../../../lib/quiz-session-store';
 import {quizStore} from '../../../../../lib/quiz-store';
 import {body,response,sameOrigin,clientIp} from '../../../../../lib/server';
 import {digest,emailAddress,throttle} from '../../../../../lib/accounts';
-import {type Question} from '../../../../../lib/quiz';
+import {grade,publicQuestion,validAnswer,type Question,type Answer} from '../../../../../lib/quiz';
 export const dynamic='force-dynamic';
-const publicQuiz=(q:any)=>({title:q.title,subject:q.subject,description:q.description,timeLimitMinutes:q.timeLimitMinutes,questions:q.questions.map((x:Question)=>({prompt:x.prompt,options:x.options,...(x.image?{image:x.image}:{}),...(x.diagram?{diagram:x.diagram}:{})}))});
-function validAnswers(value:unknown,count:number):number[]{if(!Array.isArray(value)||value.length!==count||value.some(a=>!Number.isInteger(a)||a< -1||a>3))throw Error('Check your answers and retry.');return value;}
+const publicQuiz=(q:any)=>({title:q.title,subject:q.subject,description:q.description,timeLimitMinutes:q.timeLimitMinutes,questions:q.questions.map(publicQuestion)});
+function validAnswers(value:unknown,questions:Question[]):Answer[]{if(!Array.isArray(value)||value.length!==questions.length||!questions.every((q,i)=>validAnswer(value[i],Array.isArray(q.correct),true)))throw Error('Check your answers and retry.');return value;}
 function view(row:any){return {quiz:publicQuiz(JSON.parse(row.snapshot)),student:row.student,answers:JSON.parse(row.answers),step:row.step,revision:row.revision,deadline:row.deadline,serverNow:Date.now(),...(row.result?{result:JSON.parse(row.result)}:{})};}
 async function find(id:string,hash:string){return (await quizSessionStore()).find(id,hash);}
 async function finish(row:any,incoming?:unknown){
  for(let tries=0;tries<4;tries++){
   if(row.result)return row;
-  const now=Date.now(),expired=row.deadline>0&&now>=row.deadline,q=JSON.parse(row.snapshot),answers=expired?JSON.parse(row.answers):validAnswers(incoming,q.questions.length);
-  if(!expired&&answers.some((a:number)=>a<0))throw Error('Answer every question before submitting.');
-  const feedback=q.questions.map((question:Question,i:number)=>({...question,selected:answers[i],isCorrect:question.correct===answers[i]}));
-  const result={score:feedback.filter((x:any)=>x.isCorrect).length,total:feedback.length,feedback,student:row.student,created:new Date(now).toISOString(),timedOut:expired};
+  const now=Date.now(),expired=row.deadline>0&&now>=row.deadline,q=JSON.parse(row.snapshot),answers=expired?JSON.parse(row.answers):incoming;
+  const result={...grade(q.questions,answers,expired),student:row.student,created:new Date(now).toISOString(),timedOut:expired};
   const encoded=JSON.stringify(result);
   // The revision guards against concurrent autosaves. The database clock also
   // prevents an in-flight manual submission accepting new answers after expiry.
@@ -42,7 +40,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   if(row.deadline>0&&Date.now()>=row.deadline)return response(view(await finish(row)));
   if(x.action==='resume')return response(view(row));
   if(x.action==='submit')return response(view(await finish(row,x.answers)));
-  const q=JSON.parse(row.snapshot),answers=validAnswers(x.answers,q.questions.length);
+  const q=JSON.parse(row.snapshot),answers=validAnswers(x.answers,q.questions);
   if(!Number.isInteger(x.step)||x.step<0||x.step>=q.questions.length||!Number.isInteger(x.revision)||x.revision<0)throw Error('Invalid progress. Reload the quiz.');
   await (await quizSessionStore()).save({id:row.id,quizId:id,revision:x.revision,answers:JSON.stringify(answers),step:x.step,now:Date.now()});
   const saved=await find(id,hash);if(!saved)return response({error:'This quiz is unavailable or closed.'},410);
