@@ -12,9 +12,6 @@ export default function Login() {
     <>
       <header className="header">
         <Brand />
-        <a className="text-link" href="/admin">
-          Admin sign-in
-        </a>
       </header>
       <main className="student-shell login-shell">
         <section className="start-card">
