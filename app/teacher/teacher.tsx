@@ -44,9 +44,11 @@ type CreationMode = "manual" | "ai" | null;
 export default function Teacher({
   adminMode = false,
   creatorEmail,
+  accountSignOut = false,
 }: {
   adminMode?: boolean;
   creatorEmail?: string;
+  accountSignOut?: boolean;
 }) {
   const [ready, setReady] = useState(false),
     [quizzes, setQuizzes] = useState<any[]>([]),
@@ -224,7 +226,7 @@ export default function Teacher({
             {adminMode ? "ADMIN SPACE" : creatorEmail}
           </span>
           {ready &&
-            (adminMode ? (
+            (adminMode && !accountSignOut ? (
               <a
                 className="icon-button"
                 aria-label="Sign out"
